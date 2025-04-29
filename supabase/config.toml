@@ -1,1 +1,11 @@
+
 project_id = "xsalkjgevllriluawvcp"
+
+[functions.auth]
+verify_jwt = false
+
+[functions.eventos]
+verify_jwt = false # We handle JWT verification manually
+
+[functions.convites]
+verify_jwt = false # We handle JWT verification manually

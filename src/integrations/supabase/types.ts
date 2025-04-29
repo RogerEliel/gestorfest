@@ -9,16 +9,173 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      convites: {
+        Row: {
+          created_at: string
+          enviado_em: string | null
+          evento_id: string
+          id: string
+          mensagem_personalizada: string | null
+          nome_convidado: string
+          respondido_em: string | null
+          responsavel_id: string | null
+          resposta: string | null
+          status: Database["public"]["Enums"]["status_convite"]
+          telefone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enviado_em?: string | null
+          evento_id: string
+          id?: string
+          mensagem_personalizada?: string | null
+          nome_convidado: string
+          respondido_em?: string | null
+          responsavel_id?: string | null
+          resposta?: string | null
+          status?: Database["public"]["Enums"]["status_convite"]
+          telefone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enviado_em?: string | null
+          evento_id?: string
+          id?: string
+          mensagem_personalizada?: string | null
+          nome_convidado?: string
+          respondido_em?: string | null
+          responsavel_id?: string | null
+          resposta?: string | null
+          status?: Database["public"]["Enums"]["status_convite"]
+          telefone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convites_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "convites_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos: {
+        Row: {
+          created_at: string
+          data_evento: string
+          id: string
+          local: string
+          nome: string
+          slug: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_evento: string
+          id?: string
+          local: string
+          nome: string
+          slug: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          data_evento?: string
+          id?: string
+          local?: string
+          nome?: string
+          slug?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          id: string
+          updated_at: string
+          usuario_id: string | null
+        }
+        Insert: {
+          id: string
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          telefone: string | null
+          tipo: Database["public"]["Enums"]["tipo_usuario"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          nome: string
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_usuario"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_usuario"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_unique_slug: {
+        Args: { event_name: string }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      status_convite: "pendente" | "confirmado" | "recusado" | "conversar"
+      tipo_usuario: "admin" | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +290,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      status_convite: ["pendente", "confirmado", "recusado", "conversar"],
+      tipo_usuario: ["admin", "cliente"],
+    },
   },
 } as const
