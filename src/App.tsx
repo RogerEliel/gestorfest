@@ -9,7 +9,9 @@ import NotFound from "./pages/NotFound";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaDePrivacidade from "./pages/PoliticaDePrivacidade";
 import PoliticaDeCookies from "./pages/PoliticaDeCookies";
+import TermoDeConsentimento from "./pages/TermoDeConsentimento";
 import Cadastro from "./pages/Cadastro";
+import ConvitePage from "./pages/ConvitePage";
 import CookieConsent from "./components/CookieConsent";
 
 const queryClient = new QueryClient();
@@ -25,7 +27,9 @@ const App = () => (
           <Route path="/termos-de-uso" element={<TermosDeUso />} />
           <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
           <Route path="/politica-de-cookies" element={<PoliticaDeCookies />} />
+          <Route path="/termo-de-consentimento" element={<TermoDeConsentimento />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/convite/:slug/:id" element={<ConvitePage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

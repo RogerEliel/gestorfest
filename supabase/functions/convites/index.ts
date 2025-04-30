@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -18,6 +17,7 @@ type StatusConvite = "pendente" | "confirmado" | "recusado" | "conversar";
 interface ConviteUpdateRequest {
   status: StatusConvite;
   resposta?: string;
+  consentimentoDado?: boolean;
 }
 
 // Criação do cliente Supabase
@@ -281,6 +281,17 @@ async function atualizarStatusConvite(supabase: any, conviteId: string, usuario_
 
 // Handler para resposta pública de convidados
 async function processarRespostaPublica(supabase: any, slug: string, conviteId: string, updateData: ConviteUpdateRequest) {
+  // Verify that consent was given
+  if (!updateData.consentimentoDado) {
+    return new Response(
+      JSON.stringify({ 
+        error: 'Por favor, aceite o Termo de Consentimento para prosseguir.',
+        tipo: 'consentimento_negado' 
+      }),
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+  
   const { data: conviteData, error: conviteError } = await supabase
     .from('convites')
     .select(`
@@ -308,7 +319,8 @@ async function processarRespostaPublica(supabase: any, slug: string, conviteId: 
     .update({
       status: updateData.status,
       resposta: updateData.resposta,
-      respondido_em: now
+      respondido_em: now,
+      consentimento_dado: updateData.consentimentoDado
     })
     .eq('id', conviteId)
     .select();
