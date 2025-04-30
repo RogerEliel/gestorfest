@@ -151,12 +151,56 @@ serve(async (req) => {
         responsavel_id: usuario_id
       }));
       
+      // Verificar telefones duplicados antes de tentar inserir
+      const telefones = convitesData.map(c => c.telefone);
+      const telefonesUnicos = [...new Set(telefones)];
+      
+      if (telefones.length !== telefonesUnicos.length) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Existem números de telefone duplicados na lista de convites',
+            tipo: 'duplicidade_na_requisicao' 
+          }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      
+      // Verificar se algum telefone já existe para este evento
+      const { data: telefonesExistentes } = await supabase
+        .from('convites')
+        .select('telefone')
+        .eq('evento_id', eventId)
+        .in('telefone', telefones);
+      
+      if (telefonesExistentes && telefonesExistentes.length > 0) {
+        const duplicados = telefonesExistentes.map(item => item.telefone);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Alguns telefones já estão registrados para este evento', 
+            telefones_duplicados: duplicados,
+            tipo: 'duplicidade_no_banco' 
+          }),
+          { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      
       const { data, error } = await supabase
         .from('convites')
         .insert(convitesFormatados)
         .select();
 
       if (error) {
+        // Verificar se o erro é de violação da constraint de unicidade
+        if (error.code === '23505' && error.message.includes('unique_telefone_evento')) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Um ou mais telefones já estão registrados para este evento',
+              tipo: 'duplicidade_no_banco'
+            }),
+            { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+        
         return new Response(
           JSON.stringify({ error: error.message }),
           { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
