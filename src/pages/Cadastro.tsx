@@ -60,8 +60,8 @@ const cadastroSchema = z.object({
   telefone: z.string().optional(),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
-  termos: z.literal(true, {
-    errorMap: () => ({ message: "Você deve aceitar os termos de uso" }),
+  termos: z.boolean().refine(val => val === true, {
+    message: "Você deve aceitar os termos de uso"
   }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "As senhas não conferem",
