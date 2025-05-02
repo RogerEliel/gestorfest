@@ -4,7 +4,7 @@ import { ButtonPrimary } from "@/components/ui/buttons";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, FileText, BarChart } from "lucide-react";
 import { Button } from "./ui/button";
 
 const Header = () => {
@@ -34,6 +34,13 @@ const Header = () => {
     await supabase.auth.signOut();
     navigate("/login");
   };
+
+  // Track signup button click
+  const trackSignupClick = () => {
+    if (window.trackEvent) {
+      window.trackEvent('conversion', 'signup_click', 'header_button');
+    }
+  };
   
   return (
     <header className="bg-white border-b border-gray-200">
@@ -43,6 +50,15 @@ const Header = () => {
             GestorFest
           </span>
         </Link>
+        
+        <div className="hidden md:flex space-x-4">
+          <Link to="/build-in-public" className="text-gray-600 hover:text-primary-lighter">
+            Build in Public
+          </Link>
+          <Link to="/api-docs" className="text-gray-600 hover:text-primary-lighter">
+            API Docs
+          </Link>
+        </div>
         
         <div className="flex gap-4 items-center">
           {user ? (
@@ -65,7 +81,7 @@ const Header = () => {
             </>
           ) : (
             <>
-              <ButtonPrimary asChild>
+              <ButtonPrimary asChild onClick={trackSignupClick}>
                 <Link to="/cadastro">Criar conta</Link>
               </ButtonPrimary>
               <Button variant="ghost" asChild>

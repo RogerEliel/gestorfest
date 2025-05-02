@@ -17,16 +17,55 @@ import NovoEvento from "./pages/NovoEvento";
 import ImportarConvidados from "./pages/ImportarConvidados";
 import GerenciarConvidados from "./pages/GerenciarConvidados";
 import ConvitePage from "./pages/ConvitePage";
+import ApiDocs from "./pages/ApiDocs";
+import BuildInPublic from "./pages/BuildInPublic";
 import Layout from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useEffect } from "react";
+import { initSentry } from "./integrations/sentry";
+
+// Initialize Sentry
+initSentry();
 
 const queryClient = new QueryClient();
+
+// Google Analytics Script
+const GoogleAnalytics = () => {
+  useEffect(() => {
+    // Skip if no measurement ID or if in development
+    if (!import.meta.env.VITE_GA_MEASUREMENT_ID || import.meta.env.MODE === 'development') {
+      return;
+    }
+
+    // Add Google Analytics script
+    const script = document.createElement('script');
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${import.meta.env.VITE_GA_MEASUREMENT_ID}`;
+    script.async = true;
+    document.head.appendChild(script);
+
+    // Initialize gtag
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function() {
+      window.dataLayer.push(arguments);
+    };
+    window.gtag('js', new Date());
+    window.gtag('config', import.meta.env.VITE_GA_MEASUREMENT_ID);
+
+    // Cleanup
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <GoogleAnalytics />
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -38,6 +77,8 @@ const App = () => (
             <Route path="/termo-de-consentimento" element={<Layout><TermoDeConsentimento /></Layout>} />
             <Route path="/cadastro" element={<Layout><Cadastro /></Layout>} />
             <Route path="/login" element={<Layout><Login /></Layout>} />
+            <Route path="/api-docs" element={<Layout><ApiDocs /></Layout>} />
+            <Route path="/build-in-public" element={<Layout><BuildInPublic /></Layout>} />
             
             {/* Protected routes */}
             <Route path="/dashboard" element={
