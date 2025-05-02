@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/integrations';
 
 export const initSentry = () => {
   if (!import.meta.env.VITE_SENTRY_DSN) {
@@ -9,15 +8,14 @@ export const initSentry = () => {
 
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
-    integrations: [new BrowserTracing()],
     
     // Set tracesSampleRate to 1.0 to capture 100%
     // of transactions for performance monitoring.
     // We recommend adjusting this value in production
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.5 : 1.0,
+    tracesSampleRate: import.meta.env.MODE === 'production' ? 0.5 : 1.0,
     
     // Disable Sentry in development unless explicitly enabled
-    enabled: process.env.NODE_ENV === 'production' || import.meta.env.VITE_ENABLE_SENTRY_DEV === 'true',
+    enabled: import.meta.env.MODE === 'production' || import.meta.env.VITE_ENABLE_SENTRY_DEV === 'true',
     
     // Configure release and environment
     release: import.meta.env.VITE_APP_VERSION || '1.0.0',
