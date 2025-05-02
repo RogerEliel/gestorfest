@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -49,20 +48,74 @@ const isRootPath = pathSegments.length === 1;
 const hasEventParam = pathSegments.length > 1;
 const eventParam = hasEventParam ? pathSegments[1] : null;
 
-const { data: profileData } = await supabase
+// Buscar o perfil do usuário
+let { data: profileData } = await supabase
   .from("profiles")
   .select("usuario_id")
   .eq("id", user.id)
   .single();
 
+// Se não houver perfil, vamos verificar se o usuário existe
 if (!profileData?.usuario_id) {
-  return new Response(
-    JSON.stringify({ error: "Perfil de usuário não encontrado" }),
-    { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
-  );
+  console.log("Profile not found, attempting to create one");
+  
+  // Verificar se existe um usuário com este email
+  const { data: usuarioExistente } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("email", user.email)
+    .single();
+    
+  let usuario_id;
+  
+  if (usuarioExistente) {
+    console.log("Found existing usuario with this email");
+    usuario_id = usuarioExistente.id;
+  } else {
+    // Criar um novo usuário
+    console.log("Creating new usuario");
+    const { data: newUsuario, error: usuarioError } = await supabase
+      .from("usuarios")
+      .insert([{
+        nome: user.user_metadata.nome || user.email,
+        email: user.email,
+        tipo: 'cliente'
+      }])
+      .select();
+      
+    if (usuarioError || !newUsuario?.length) {
+      console.error("Error creating usuario:", usuarioError);
+      return new Response(
+        JSON.stringify({ error: "Erro ao criar usuário", details: usuarioError?.message }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    usuario_id = newUsuario[0].id;
+  }
+  
+  // Criar ou atualizar o perfil
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert([{
+      id: user.id,
+      usuario_id: usuario_id
+    }]);
+    
+  if (profileError) {
+    console.error("Error creating profile:", profileError);
+    return new Response(
+      JSON.stringify({ error: "Erro ao criar perfil", details: profileError.message }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+  
+  // Definir o perfil para uso posterior
+  profileData = { usuario_id };
 }
 
 const usuario_id = profileData.usuario_id;
+console.log("Using usuario_id:", usuario_id);
 
 if (isRootPath && req.method === "GET") {
   const { data: eventos, error } = await supabase
