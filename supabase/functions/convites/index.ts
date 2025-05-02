@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -481,3 +482,11 @@ serve(async (req) => {
     );
   }
 });
+
+/*
+ * Próximo passo - Passo 4: Fluxo de RSVP & Dashboard de Convites
+ * Endpoints:
+ * - POST /eventos/{id}/convites/{convite_id}/resposta para registrar respostas de convidados
+ * - GET /eventos/{id}/dashboard para visualização de estatísticas em gráficos e contagens
+ * Este módulo será implementado na próxima iteração.
+ */
