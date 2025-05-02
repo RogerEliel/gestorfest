@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Check, X, MailForward } from "lucide-react";
+import { Check, X, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,7 +180,7 @@ const RSVPButtonGroup = ({ conviteId, eventoId, status, onStatusUpdate }: RSVPBu
         {loading === "reenviar" ? (
           <span className="animate-spin mr-1">⏳</span>
         ) : (
-          <MailForward className="mr-1 h-4 w-4" />
+          <Mail className="mr-1 h-4 w-4" />
         )}
         Reenviar
       </Button>
