@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const eventoSchema = z.object({
   nome: z.string().min(3, "Nome do evento deve ter pelo menos 3 caracteres"),
@@ -32,6 +33,7 @@ const NovoEvento = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { session } = useAuth();
   
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
@@ -45,6 +47,16 @@ const NovoEvento = () => {
     try {
       setLoading(true);
       
+      if (!session) {
+        throw new Error("Você precisa estar autenticado para criar um evento");
+      }
+
+      console.log("Creating event with values:", {
+        nome: values.nome,
+        data_evento: values.data_evento.toISOString(),
+        local: values.local,
+      });
+      
       const { data, error } = await supabase.functions.invoke("eventos", {
         method: "POST",
         body: {
@@ -55,9 +67,16 @@ const NovoEvento = () => {
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error("Error from API:", error);
+        throw new Error(error.message || "Erro ao criar evento");
       }
 
+      if (!data) {
+        throw new Error("Não foi possível criar o evento");
+      }
+
+      console.log("Event created successfully:", data);
+      
       toast({
         title: "Evento criado com sucesso!",
         description: "Agora você pode adicionar convidados ao seu evento.",

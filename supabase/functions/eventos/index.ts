@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -91,6 +92,8 @@ if (isRootPath && req.method === "GET") {
 
 if (isRootPath && req.method === "POST") {
   const eventoData = await req.json() as EventoRequest;
+  
+  console.log("Received event data:", eventoData);
 
   if (!eventoData.nome || !eventoData.data_evento || !eventoData.local) {
     return new Response(
@@ -113,6 +116,7 @@ if (isRootPath && req.method === "POST") {
   );
 
   if (slugError) {
+    console.error("Slug generation error:", slugError);
     return new Response(
       JSON.stringify({ error: "Erro ao gerar slug único", details: slugError.message }),
       { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -133,11 +137,14 @@ if (isRootPath && req.method === "POST") {
     .select();
 
   if (error) {
+    console.error("Event creation error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
+
+  console.log("Event created successfully:", data);
 
   return new Response(
     JSON.stringify(data[0]),
@@ -229,6 +236,7 @@ return new Response(
 );
 
 } catch (err) {
+console.error("Function error:", err);
 return new Response(
 JSON.stringify({ error: err instanceof Error ? err.message : "Erro desconhecido" }),
 { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

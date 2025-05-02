@@ -172,6 +172,10 @@ export type Database = {
         Args: { event_name: string }
         Returns: string
       }
+      validar_cpf: {
+        Args: { cpf: string }
+        Returns: boolean
+      }
     }
     Enums: {
       status_convite: "pendente" | "confirmado" | "recusado" | "conversar"
