@@ -1,16 +1,15 @@
 
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
+import { InputEmail, InputPassword } from "@/components/ui/inputs";
+import { ButtonPrimary } from "@/components/ui/buttons";
+import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
   email: z.string().email("Digite um email válido"),
@@ -22,7 +21,9 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { signIn, user } = useAuth();
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -32,45 +33,48 @@ const Login = () => {
     },
   });
 
+  // If the user is already logged in, redirect them
+  useEffect(() => {
+    if (user) {
+      const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
+      sessionStorage.removeItem("redirectAfterLogin");
+      navigate(redirectPath);
+    }
+  }, [user, navigate]);
+
   const onSubmit = async (values: LoginFormValues) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke("auth/login", {
-        method: "POST",
-        body: {
-          email: values.email,
-          password: values.password,
-        },
-      });
+      const { error, data } = await signIn(values.email, values.password);
 
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
 
       if (data) {
-        const { session } = data;
-        
-        // Store session in localStorage (handled by Supabase client)
-        await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        });
-        
         toast({
           title: "Login realizado com sucesso!",
           description: "Você será redirecionado para o dashboard.",
         });
         
-        // Redirect to dashboard
-        navigate("/dashboard");
+        // Redirect to dashboard or the original intended destination
+        const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
+        sessionStorage.removeItem("redirectAfterLogin");
+        navigate(redirectPath);
       }
     } catch (error: any) {
       console.error("Login error:", error);
       
+      let errorMessage = "Erro ao fazer login. Verifique suas credenciais.";
+      
+      if (error.message?.includes("Invalid login")) {
+        errorMessage = "Email ou senha incorretos.";
+      }
+      
       toast({
         title: "Erro ao fazer login",
-        description: error.message || "Verifique suas credenciais e tente novamente.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -79,16 +83,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-grow flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Login</CardTitle>
-            <CardDescription className="text-center">
+    <div className="py-10 px-4">
+      <div className="max-w-md mx-auto">
+        <Card className="border-primary-lighter/20 shadow-lg">
+          <CardHeader className="text-center bg-gradient-primary text-white rounded-t-lg">
+            <CardTitle className="text-2xl">Login</CardTitle>
+            <CardDescription className="text-white/80">
               Entre na sua conta do GestorFest
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -98,7 +102,7 @@ const Login = () => {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="seu@email.com" {...field} />
+                        <InputEmail placeholder="seu@email.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -111,29 +115,28 @@ const Login = () => {
                     <FormItem>
                       <FormLabel>Senha</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="********" {...field} />
+                        <InputPassword placeholder="********" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={loading}>
+                <ButtonPrimary type="submit" className="w-full mt-6" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
-                </Button>
+                </ButtonPrimary>
               </form>
             </Form>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
+          <CardFooter className="flex flex-col space-y-2 bg-gray-50 rounded-b-lg">
             <div className="text-sm text-center text-gray-500">
               Ainda não tem uma conta?{" "}
-              <Link to="/cadastro" className="text-primary hover:underline">
+              <Link to="/cadastro" className="text-primary-lighter hover:underline font-medium">
                 Cadastre-se
               </Link>
             </div>
           </CardFooter>
         </Card>
-      </main>
-      <Footer />
+      </div>
     </div>
   );
 };

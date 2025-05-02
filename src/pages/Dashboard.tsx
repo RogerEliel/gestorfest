@@ -1,15 +1,11 @@
 
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { CalendarIcon, PlusCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import { PlusCircle } from "lucide-react";
+import { ButtonPrimary } from "@/components/ui/buttons";
 import { useToast } from "@/components/ui/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import Footer from "@/components/Footer";
+import CardEvento from "@/components/CardEvento";
 
 interface Evento {
   id: string;
@@ -17,30 +13,18 @@ interface Evento {
   data_evento: string;
   local: string;
   slug: string;
+  total_convidados?: number;
+  total_confirmados?: number;
 }
 
 const Dashboard = () => {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        navigate("/login");
-        return;
-      }
-      
-      setUser(sessionData.session.user);
-      fetchEventos();
-    };
-
-    checkAuth();
-  }, [navigate]);
+    fetchEventos();
+  }, []);
 
   const fetchEventos = async () => {
     try {
@@ -65,94 +49,51 @@ const Dashboard = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-    } catch (error) {
-      return dateString;
-    }
-  };
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-grow container mx-auto p-4 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Meus Eventos</h1>
-          <Button asChild>
-            <Link to="/eventos/novo">
-              <PlusCircle className="mr-2 h-4 w-4" /> Novo Evento
-            </Link>
-          </Button>
-        </div>
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          Meus Eventos
+        </h1>
+        <ButtonPrimary asChild>
+          <Link to="/eventos/novo">
+            <PlusCircle className="mr-2 h-5 w-5" /> Novo Evento
+          </Link>
+        </ButtonPrimary>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Eventos</CardTitle>
-            <CardDescription>
-              Gerencie seus eventos e envie convites para seus convidados.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center p-4">
-                <p>Carregando eventos...</p>
-              </div>
-            ) : eventos.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">Você ainda não tem eventos cadastrados.</p>
-                <Button asChild>
-                  <Link to="/eventos/novo">Criar meu primeiro evento</Link>
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Local</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {eventos.map((evento) => (
-                    <TableRow key={evento.id}>
-                      <TableCell className="font-medium">{evento.nome}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                          {formatDate(evento.data_evento)}
-                        </div>
-                      </TableCell>
-                      <TableCell>{evento.local}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" asChild>
-                            <Link to={`/eventos/${evento.id}/convidados`}>
-                              Convidados
-                            </Link>
-                          </Button>
-                          <Button size="sm" asChild>
-                            <Link to={`/eventos/${evento.id}`}>
-                              Gerenciar
-                            </Link>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-          <CardFooter>
-            <p className="text-sm text-muted-foreground">
-              Total de eventos: {eventos.length}
-            </p>
-          </CardFooter>
-        </Card>
-      </main>
-      <Footer />
+      {loading ? (
+        <div className="flex justify-center p-12">
+          <p>Carregando eventos...</p>
+        </div>
+      ) : eventos.length === 0 ? (
+        <div className="text-center py-16 px-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h2 className="text-2xl font-semibold mb-2">Nenhum evento cadastrado</h2>
+          <p className="text-muted-foreground mb-8">
+            Crie seu primeiro evento para começar a gerenciar seus convidados.
+          </p>
+          <ButtonPrimary asChild>
+            <Link to="/eventos/novo">
+              <PlusCircle className="mr-2 h-5 w-5" /> Criar meu primeiro evento
+            </Link>
+          </ButtonPrimary>
+        </div>
+      ) : (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {eventos.map((evento) => (
+            <CardEvento
+              key={evento.id}
+              id={evento.id}
+              nome={evento.nome}
+              data={evento.data_evento}
+              local={evento.local}
+              totalConvidados={evento.total_convidados}
+              totalConfirmados={evento.total_confirmados}
+              slug={evento.slug}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

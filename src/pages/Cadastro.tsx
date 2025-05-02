@@ -5,49 +5,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
-import Footer from "@/components/Footer";
-import { supabase } from "@/integrations/supabase/client";
+import { InputText, InputEmail, InputPassword, InputCPF } from "@/components/ui/inputs";
+import { ButtonPrimary } from "@/components/ui/buttons";
+import CheckboxLGPD from "@/components/CheckboxLGPD";
+import ModalTerms from "@/components/ModalTerms";
+import { useAuth } from "@/contexts/AuthContext";
 
-// CPF validation function
-const isValidCPF = (cpf: string) => {
-  cpf = cpf.replace(/[^\d]+/g, '');
-  
-  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) {
-    return false;
-  }
-  
-  const digits = cpf.split('').map(x => parseInt(x));
-  
-  // Validate first check digit
-  const sum1 = digits.slice(0, 9).reduce((acc, x, i) => acc + x * (10 - i), 0);
-  const mod1 = (sum1 * 10) % 11;
-  const check1 = mod1 === 10 ? 0 : mod1;
-  
-  if (check1 !== digits[9]) {
-    return false;
-  }
-  
-  // Validate second check digit
-  const sum2 = digits.slice(0, 10).reduce((acc, x, i) => acc + x * (11 - i), 0);
-  const mod2 = (sum2 * 10) % 11;
-  const check2 = mod2 === 10 ? 0 : mod2;
-  
-  return check2 === digits[10];
-};
-
-// CPF formatter function
-const formatCPF = (value: string) => {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
-};
+// CPF validation function is now in InputCPF component
 
 const cadastroSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -55,13 +22,15 @@ const cadastroSchema = z.object({
   cpf: z
     .string()
     .min(11, "CPF deve ter 11 dígitos")
-    .max(14, "CPF inválido")
-    .refine((cpf) => isValidCPF(cpf), { message: "CPF inválido" }),
+    .max(14, "CPF inválido"),
   telefone: z.string().optional(),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   termos: z.boolean().refine(val => val === true, {
     message: "Você deve aceitar os termos de uso"
+  }),
+  lgpd: z.boolean().refine(val => val === true, {
+    message: "Você deve consentir com o tratamento de dados pessoais"
   }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "As senhas não conferem",
@@ -72,8 +41,11 @@ type CadastroFormValues = z.infer<typeof cadastroSchema>;
 
 const Cadastro = () => {
   const [loading, setLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showLGPDModal, setShowLGPDModal] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp } = useAuth();
   
   const form = useForm<CadastroFormValues>({
     resolver: zodResolver(cadastroSchema),
@@ -85,6 +57,7 @@ const Cadastro = () => {
       password: "",
       confirmPassword: "",
       termos: false,
+      lgpd: false,
     },
   });
 
@@ -92,19 +65,15 @@ const Cadastro = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke("auth/signup", {
-        method: "POST",
-        body: {
-          email: values.email,
-          password: values.password,
-          nome: values.nome,
-          telefone: values.telefone || undefined,
-          tipo: "cliente"
-        },
+      const { error, data } = await signUp(values.email, values.password, {
+        nome: values.nome,
+        telefone: values.telefone || undefined,
+        cpf: values.cpf,
+        tipo: "cliente"
       });
 
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
 
       toast({
@@ -133,23 +102,17 @@ const Cadastro = () => {
     }
   };
 
-  // Handle CPF formatting
-  const handleCPFChange = (event: React.ChangeEvent<HTMLInputElement>, onChange: (...event: any[]) => void) => {
-    const formatted = formatCPF(event.target.value);
-    onChange(formatted);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-grow flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
-            <CardDescription className="text-center">
+    <div className="py-10 px-4">
+      <div className="max-w-md mx-auto">
+        <Card className="border-primary-lighter/20 shadow-lg">
+          <CardHeader className="text-center bg-gradient-primary text-white rounded-t-lg">
+            <CardTitle className="text-2xl">Criar Conta</CardTitle>
+            <CardDescription className="text-white/80">
               Cadastre-se no GestorFest para começar
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -159,7 +122,7 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>Nome completo</FormLabel>
                       <FormControl>
-                        <Input placeholder="Seu nome completo" {...field} />
+                        <InputText placeholder="Seu nome completo" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -172,7 +135,7 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="seu@email.com" type="email" {...field} />
+                        <InputEmail placeholder="seu@email.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -185,10 +148,9 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>CPF</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="000.000.000-00" 
+                        <InputCPF
+                          placeholder="000.000.000-00"
                           {...field}
-                          onChange={(e) => handleCPFChange(e, field.onChange)} 
                         />
                       </FormControl>
                       <FormMessage />
@@ -202,7 +164,7 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>Telefone (opcional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="(00) 00000-0000" {...field} />
+                        <InputText placeholder="(00) 00000-0000" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -215,7 +177,7 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>Senha</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="********" {...field} />
+                        <InputPassword placeholder="********" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -228,60 +190,94 @@ const Cadastro = () => {
                     <FormItem>
                       <FormLabel>Confirme a senha</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="********" {...field} />
+                        <InputPassword placeholder="********" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="termos"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>
-                          Li e aceito os{" "}
-                          <Link to="/termos-de-uso" className="text-primary hover:underline">
-                            termos de uso
-                          </Link>
-                          ,{" "}
-                          <Link to="/politica-de-privacidade" className="text-primary hover:underline">
-                            política de privacidade
-                          </Link>
-                          {" "}e{" "}
-                          <Link to="/politica-de-cookies" className="text-primary hover:underline">
-                            política de cookies
-                          </Link>
-                        </FormLabel>
-                        <FormMessage />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={loading}>
+                
+                <div className="space-y-2 pt-2">
+                  <CheckboxLGPD
+                    control={form.control}
+                    name="termos"
+                    label={
+                      <>
+                        Li e aceito os{" "}
+                        <button
+                          type="button"
+                          className="text-primary-lighter hover:underline font-medium"
+                          onClick={() => setShowTermsModal(true)}
+                        >
+                          termos de uso
+                        </button>
+                        {" "}e{" "}
+                        <Link to="/politica-de-privacidade" className="text-primary-lighter hover:underline font-medium" target="_blank">
+                          política de privacidade
+                        </Link>
+                      </>
+                    }
+                  />
+                  
+                  <CheckboxLGPD
+                    control={form.control}
+                    name="lgpd"
+                    label={
+                      <>
+                        Consinto com o{" "}
+                        <button 
+                          type="button"
+                          className="text-primary-lighter hover:underline font-medium"
+                          onClick={() => setShowLGPDModal(true)}
+                        >
+                          tratamento dos meus dados pessoais
+                        </button>
+                        {" "}de acordo com a LGPD
+                      </>
+                    }
+                  />
+                </div>
+                
+                <ButtonPrimary type="submit" className="w-full mt-6" disabled={loading}>
                   {loading ? "Cadastrando..." : "Criar conta"}
-                </Button>
+                </ButtonPrimary>
               </form>
             </Form>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
+          <CardFooter className="flex flex-col space-y-2 bg-gray-50 rounded-b-lg">
             <div className="text-sm text-center text-gray-500">
               Já tem uma conta?{" "}
-              <Link to="/login" className="text-primary hover:underline">
+              <Link to="/login" className="text-primary-lighter hover:underline font-medium">
                 Faça login
               </Link>
             </div>
           </CardFooter>
         </Card>
-      </main>
-      <Footer />
+      </div>
+      
+      <ModalTerms
+        open={showTermsModal}
+        onOpenChange={setShowTermsModal}
+        title="Termos de Uso"
+        content={
+          <div className="prose max-w-none">
+            <p>Leia os termos de uso completos em nossa página de <Link to="/termos-de-uso" target="_blank" className="text-primary-lighter">Termos de Uso</Link>.</p>
+            <p>Ao criar uma conta no GestorFest, você concorda com nossos termos e condições de uso.</p>
+          </div>
+        }
+      />
+      
+      <ModalTerms
+        open={showLGPDModal}
+        onOpenChange={setShowLGPDModal}
+        title="Tratamento de Dados Pessoais"
+        content={
+          <div className="prose max-w-none">
+            <p>Leia o termo de consentimento completo em nossa página de <Link to="/termo-de-consentimento" target="_blank" className="text-primary-lighter">Termo de Consentimento</Link>.</p>
+            <p>Em conformidade com a Lei Geral de Proteção de Dados (LGPD), seus dados pessoais serão tratados apenas para os fins especificados em nossa política de privacidade.</p>
+          </div>
+        }
+      />
     </div>
   );
 };
