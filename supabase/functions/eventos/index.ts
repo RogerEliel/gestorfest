@@ -1,5 +1,4 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 
@@ -96,7 +95,7 @@ serve(async (req) => {
 
       if (error) {
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }),
           { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
@@ -272,9 +271,19 @@ serve(async (req) => {
      */
   } catch (error) {
     console.error("Erro na função de eventos:", error);
+  
+    const errorMessage = error instanceof Error ? error.message : String(error);
+  
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({ error: errorMessage }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders
+        }
+      }
     );
   }
-});
+} 
+)
