@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { UploadCloud, CheckCircle, XCircle, HelpCircle, MessageCircle, Share2 } from "lucide-react";
+import { UploadCloud, CheckCircle, XCircle, HelpCircle, MessageCircle, Share2, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,8 +18,11 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
+import DashboardStats from "@/components/DashboardStats";
+import RSVPButtonGroup from "@/components/RSVPButtonGroup";
 
 interface Convite {
   id: string;
@@ -49,6 +52,7 @@ const GerenciarConvidados = () => {
   const [shareUrl, setShareUrl] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedConviteId, setSelectedConviteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("convites");
 
   useEffect(() => {
     if (!eventoId) return;
@@ -142,6 +146,14 @@ const GerenciarConvidados = () => {
     });
   };
 
+  const handleStatusUpdate = (conviteId: string, newStatus: "pendente" | "confirmado" | "recusado" | "conversar") => {
+    setConvites(prevConvites => 
+      prevConvites.map(convite => 
+        convite.id === conviteId ? { ...convite, status: newStatus, respondido_em: new Date().toISOString() } : convite
+      )
+    );
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmado":
@@ -188,7 +200,7 @@ const GerenciarConvidados = () => {
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow container mx-auto p-4 space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Convidados</h1>
+          <h1 className="text-3xl font-bold">Gestão de Convidados</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(`/dashboard`)}>
               Voltar
@@ -211,109 +223,134 @@ const GerenciarConvidados = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-green-50">
-                  <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Confirmados</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-2 pt-0">
-                    <p className="text-2xl font-bold">{confirmados}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {totalConvites > 0 ? Math.round((confirmados / totalConvites) * 100) : 0}% do total
-                    </p>
-                  </CardContent>
-                </Card>
+              <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="convites">Lista de Convidados</TabsTrigger>
+                  <TabsTrigger value="dashboard">
+                    <PieChart className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </TabsTrigger>
+                </TabsList>
                 
-                <Card className="bg-red-50">
-                  <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Recusados</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-2 pt-0">
-                    <p className="text-2xl font-bold">{recusados}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {totalConvites > 0 ? Math.round((recusados / totalConvites) * 100) : 0}% do total
-                    </p>
-                  </CardContent>
-                </Card>
+                <TabsContent value="convites" className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <Card className="bg-green-50">
+                      <CardHeader className="py-2">
+                        <CardTitle className="text-sm font-medium">Confirmados</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pb-2 pt-0">
+                        <p className="text-2xl font-bold">{confirmados}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {totalConvites > 0 ? Math.round((confirmados / totalConvites) * 100) : 0}% do total
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-red-50">
+                      <CardHeader className="py-2">
+                        <CardTitle className="text-sm font-medium">Recusados</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pb-2 pt-0">
+                        <p className="text-2xl font-bold">{recusados}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {totalConvites > 0 ? Math.round((recusados / totalConvites) * 100) : 0}% do total
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-gray-50">
+                      <CardHeader className="py-2">
+                        <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pb-2 pt-0">
+                        <p className="text-2xl font-bold">{pendentes}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {totalConvites > 0 ? Math.round((pendentes / totalConvites) * 100) : 0}% do total
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-blue-50">
+                      <CardHeader className="py-2">
+                        <CardTitle className="text-sm font-medium">Conversas</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pb-2 pt-0">
+                        <p className="text-2xl font-bold">{conversas}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {totalConvites > 0 ? Math.round((conversas / totalConvites) * 100) : 0}% do total
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  
+                  {loading ? (
+                    <div className="flex justify-center p-4">
+                      <p>Carregando lista de convidados...</p>
+                    </div>
+                  ) : convites.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">Você ainda não tem convidados neste evento.</p>
+                      <Button asChild>
+                        <Link to={`/eventos/${eventoId}/convidados/importar`}>
+                          Importar convidados
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Telefone</TableHead>
+                            <TableHead>Respondido</TableHead>
+                            <TableHead>Ações</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {convites.map((convite) => (
+                            <TableRow key={convite.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(convite.status)}
+                                  {getStatusBadge(convite.status)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{convite.nome_convidado}</TableCell>
+                              <TableCell>{convite.telefone}</TableCell>
+                              <TableCell>{convite.respondido_em ? formatDate(convite.respondido_em) : "Não respondido"}</TableCell>
+                              <TableCell>
+                                <RSVPButtonGroup 
+                                  conviteId={convite.id}
+                                  eventoId={eventoId || ""}
+                                  status={convite.status}
+                                  onStatusUpdate={(newStatus) => handleStatusUpdate(convite.id, newStatus)}
+                                />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  size="icon"
+                                  variant="outline"
+                                  onClick={() => getShareUrl(convite.id)}
+                                  title="Compartilhar"
+                                >
+                                  <Share2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
                 
-                <Card className="bg-gray-50">
-                  <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-2 pt-0">
-                    <p className="text-2xl font-bold">{pendentes}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {totalConvites > 0 ? Math.round((pendentes / totalConvites) * 100) : 0}% do total
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-blue-50">
-                  <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Conversas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-2 pt-0">
-                    <p className="text-2xl font-bold">{conversas}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {totalConvites > 0 ? Math.round((conversas / totalConvites) * 100) : 0}% do total
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              {loading ? (
-                <div className="flex justify-center p-4">
-                  <p>Carregando lista de convidados...</p>
-                </div>
-              ) : convites.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">Você ainda não tem convidados neste evento.</p>
-                  <Button asChild>
-                    <Link to={`/eventos/${eventoId}/convidados/importar`}>
-                      Importar convidados
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Telefone</TableHead>
-                        <TableHead>Respondido</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {convites.map((convite) => (
-                        <TableRow key={convite.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(convite.status)}
-                              {getStatusBadge(convite.status)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">{convite.nome_convidado}</TableCell>
-                          <TableCell>{convite.telefone}</TableCell>
-                          <TableCell>{convite.respondido_em ? formatDate(convite.respondido_em) : "Não respondido"}</TableCell>
-                          <TableCell className="text-right">
-                            <Button 
-                              size="icon"
-                              variant="outline"
-                              onClick={() => getShareUrl(convite.id)}
-                              title="Compartilhar"
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+                <TabsContent value="dashboard">
+                  {eventoId && <DashboardStats eventoId={eventoId} />}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         )}
