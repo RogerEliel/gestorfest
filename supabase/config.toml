@@ -1,11 +1,43 @@
 
 project_id = "xsalkjgevllriluawvcp"
 
-[functions.auth]
-verify_jwt = false
+[api]
+enabled = true
 
-[functions.eventos]
-verify_jwt = false # We handle JWT verification manually
+[[api.schemas]]
+name = "public"
 
-[functions.convites]
-verify_jwt = false # We handle JWT verification manually
+[db]
+enabled = true
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+
+[edge_functions]
+enabled = true
+
+[[edge_functions.routes]]
+path = "/eventos"
+function = "eventos"
+
+[[edge_functions.routes]]
+path = "/eventos/*"
+function = "eventos"
+
+[[edge_functions.routes]]
+path = "/convites/*"
+function = "convites"
+
+[[edge_functions.routes]]
+path = "/audit-log"
+function = "audit-log"
+
+[[edge_functions.routes]]
+path = "/audit-log-batch"
+function = "audit-log-batch"

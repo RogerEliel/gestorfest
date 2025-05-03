@@ -1,79 +1,56 @@
 
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { InputEmail, InputPassword } from "@/components/ui/inputs";
-import { ButtonPrimary } from "@/components/ui/buttons";
+import { supabase } from "@/integrations/supabase/client";
+import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-
-const loginSchema = z.object({
-  email: z.string().email("Digite um email válido"),
-  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+import ForgotPassword from "@/components/auth/ForgotPassword";
 
 const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const { setSession } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  const { signIn, user } = useAuth();
-  
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
 
-  // If the user is already logged in, redirect them
-  useEffect(() => {
-    if (user) {
-      const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
-      sessionStorage.removeItem("redirectAfterLogin");
-      navigate(redirectPath);
-    }
-  }, [user, navigate]);
-
-  const onSubmit = async (values: LoginFormValues) => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
       setLoading(true);
       
-      const { error, data } = await signIn(values.email, values.password);
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Você será redirecionado para o dashboard.",
-        });
-        
-        // Redirect to dashboard or the original intended destination
-        const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
-        sessionStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath);
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      setSession(data.session);
+      
+      toast({
+        title: "Login realizado",
+        description: "Você foi conectado com sucesso!",
+      });
+      
+      navigate("/dashboard");
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Error logging in:", error);
       
-      let errorMessage = "Erro ao fazer login. Verifique suas credenciais.";
+      let errorMessage = "E-mail ou senha inválidos";
       
-      if (error.message?.includes("Invalid login")) {
-        errorMessage = "Email ou senha incorretos.";
+      if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Por favor, confirme seu e-mail antes de fazer login";
       }
       
       toast({
-        title: "Erro ao fazer login",
+        title: "Erro de autenticação",
         description: errorMessage,
         variant: "destructive",
       });
@@ -83,60 +60,73 @@ const Login = () => {
   };
 
   return (
-    <div className="py-10 px-4">
-      <div className="max-w-md mx-auto">
-        <Card className="border-primary-lighter/20 shadow-lg">
-          <CardHeader className="text-center bg-gradient-primary text-white rounded-t-lg">
-            <CardTitle className="text-2xl">Login</CardTitle>
-            <CardDescription className="text-white/80">
-              Entre na sua conta do GestorFest
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-grow flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-center">Entrar</CardTitle>
+            <CardDescription className="text-center">
+              Entre com sua conta para continuar
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <InputEmail placeholder="seu@email.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha</FormLabel>
-                      <FormControl>
-                        <InputPassword placeholder="********" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <ButtonPrimary type="submit" className="w-full mt-6" disabled={loading}>
+          <CardContent>
+            {!showForgotPassword ? (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-gray-700 font-medium">
+                    E-mail
+                  </label>
+                  <Input
+                    id="email"
+                    placeholder="seu@email.com"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="password" className="block text-gray-700 font-medium">
+                      Senha
+                    </label>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="px-0 text-sm font-medium"
+                      onClick={() => setShowForgotPassword(true)}
+                    >
+                      Esqueceu a senha?
+                    </Button>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="********"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
-                </ButtonPrimary>
+                </Button>
               </form>
-            </Form>
+            ) : (
+              <ForgotPassword onBack={() => setShowForgotPassword(false)} />
+            )}
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2 bg-gray-50 rounded-b-lg">
-            <div className="text-sm text-center text-gray-500">
-              Ainda não tem uma conta?{" "}
-              <Link to="/cadastro" className="text-primary-lighter hover:underline font-medium">
-                Cadastre-se
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="text-sm text-gray-700 text-center">
+              Não tem uma conta?{" "}
+              <Link to="/cadastro" className="text-blue-600 hover:underline">
+                Criar conta
               </Link>
             </div>
           </CardFooter>
         </Card>
-      </div>
+      </main>
+      <Footer />
     </div>
   );
 };

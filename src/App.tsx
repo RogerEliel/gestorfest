@@ -12,6 +12,7 @@ import PoliticaDeCookies from "./pages/PoliticaDeCookies";
 import TermoDeConsentimento from "./pages/TermoDeConsentimento";
 import Cadastro from "./pages/Cadastro";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import NovoEvento from "./pages/NovoEvento";
 import ImportarConvidados from "./pages/ImportarConvidados";
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/termo-de-consentimento" element={<Layout><TermoDeConsentimento /></Layout>} />
             <Route path="/cadastro" element={<Layout><Cadastro /></Layout>} />
             <Route path="/login" element={<Layout><Login /></Layout>} />
+            <Route path="/redefinir-senha" element={<Layout><ResetPassword /></Layout>} />
             <Route path="/api-docs" element={<Layout><ApiDocs /></Layout>} />
             <Route path="/build-in-public" element={<Layout><BuildInPublic /></Layout>} />
             

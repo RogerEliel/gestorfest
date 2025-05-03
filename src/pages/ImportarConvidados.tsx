@@ -1,370 +1,300 @@
 
-import { useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { AlertCircle, Check, Upload } from "lucide-react";
+import UploadAreaCSV from "@/components/UploadAreaCSV";
+import CSVTemplateDownload from "@/components/CSVTemplateDownload";
 import Footer from "@/components/Footer";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, UploadCloud } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { isValidPhoneNumber, formatPhoneNumber } from "@/lib/validation";
 
-// Define o schema para validação dos dados
-const convidadoSchema = z.object({
-  nome_convidado: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
-  telefone: z.string().min(10, "Telefone inválido"),
-  mensagem_personalizada: z.string().optional(),
-});
+interface ConviteData {
+  nome_convidado: string;
+  telefone: string;
+  mensagem_personalizada?: string;
+}
 
-type Convidado = z.infer<typeof convidadoSchema>;
+interface ImportError {
+  row: number;
+  field: string;
+  message: string;
+}
 
 const ImportarConvidados = () => {
   const { id: eventoId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [parsedData, setParsedData] = useState<Array<Convidado & { valid: boolean; errors?: string[] }>>([]);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"upload" | "review" | "importing">("upload");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [validating, setValidating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [convites, setConvites] = useState<ConviteData[]>([]);
+  const [errors, setErrors] = useState<ImportError[]>([]);
+  const [evento, setEvento] = useState<any>(null);
 
-  const form = useForm({
-    resolver: zodResolver(z.object({})),
-    defaultValues: {},
-  });
+  useEffect(() => {
+    fetchEvento();
+  }, [eventoId]);
 
-  const processCSV = (text: string) => {
-    const lines = text.split("\n");
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    
-    const nameIndex = headers.findIndex(h => h === "nome" || h === "nome_convidado");
-    const phoneIndex = headers.findIndex(h => h === "telefone" || h === "phone" || h === "celular");
-    const messageIndex = headers.findIndex(h => h === "mensagem" || h === "mensagem_personalizada" || h === "message");
-    
-    if (nameIndex === -1 || phoneIndex === -1) {
-      toast({
-        title: "Formato inválido",
-        description: "O arquivo CSV deve conter pelo menos as colunas 'nome' e 'telefone'.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const results: Array<Convidado & { valid: boolean; errors?: string[] }> = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      
-      const values = lines[i].split(",").map(v => v.trim());
-      
-      const convidado = {
-        nome_convidado: values[nameIndex] || "",
-        telefone: values[phoneIndex] || "",
-        mensagem_personalizada: messageIndex !== -1 ? values[messageIndex] : undefined,
-      };
-      
-      try {
-        convidadoSchema.parse(convidado);
-        results.push({ ...convidado, valid: true });
-      } catch (error: any) {
-        if (error.errors) {
-          const errorMessages = error.errors.map((e: any) => e.message);
-          results.push({ ...convidado, valid: false, errors: errorMessages });
-        } else {
-          results.push({ ...convidado, valid: false, errors: ["Erro de validação desconhecido"] });
-        }
-      }
-    }
-    
-    setParsedData(results);
-    setStep("review");
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    
-    if (!file) return;
-    
-    if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-      toast({
-        title: "Formato inválido",
-        description: "Por favor, envie um arquivo CSV.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      processCSV(text);
-    };
-    
-    reader.readAsText(file);
-  };
-
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault();
-    
-    const file = event.dataTransfer.files[0];
-    
-    if (!file) return;
-    
-    if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-      toast({
-        title: "Formato inválido",
-        description: "Por favor, envie um arquivo CSV.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      processCSV(text);
-    };
-    
-    reader.readAsText(file);
-  };
-
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-  };
-
-  const handleImport = async () => {
+  const fetchEvento = async () => {
     if (!eventoId) return;
-    
+
     try {
       setLoading(true);
-      setStep("importing");
       
-      const validData = parsedData.filter(item => item.valid);
-      
-      if (validData.length === 0) {
-        toast({
-          title: "Nenhum dado válido",
-          description: "Não há dados válidos para importar.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Format data for API
-      const convidados = validData.map(({ nome_convidado, telefone, mensagem_personalizada }) => ({
-        nome_convidado,
-        telefone,
-        mensagem_personalizada: mensagem_personalizada || undefined,
-      }));
-      
-      // Call the API to import guests
-      const { data, error } = await supabase.functions.invoke(`convites/eventos/${eventoId}/criar-lote`, {
-        method: "POST",
-        body: convidados,
+      const { data, error } = await supabase.functions.invoke(`eventos/${eventoId}`, {
+        method: "GET"
       });
 
-      if (error) {
-        // Handle specific error types
-        if (error.message.includes("duplicidade")) {
-          throw new Error("Alguns telefones já estão cadastrados para este evento.");
-        }
-        
-        throw new Error(error.message);
-      }
+      if (error) throw error;
       
-      toast({
-        title: "Convidados importados com sucesso!",
-        description: `${validData.length} convidados foram adicionados ao evento.`,
-      });
-      
-      // Redirect to event page
-      navigate(`/eventos/${eventoId}/convidados`);
+      setEvento(data);
     } catch (error: any) {
-      console.error("Error importing guests:", error);
-      
+      console.error("Error fetching event:", error);
       toast({
-        title: "Erro ao importar convidados",
-        description: error.message || "Não foi possível importar os convidados. Tente novamente.",
+        title: "Erro",
+        description: "Não foi possível carregar os detalhes do evento.",
         variant: "destructive",
       });
-      
-      setStep("review");
+      navigate("/dashboard");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTryAnother = () => {
-    setParsedData([]);
-    setStep("upload");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const parseCSV = useCallback((csvText: string) => {
+    const lines = csvText.split(/\r\n|\n/);
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    // Validate required headers
+    const requiredHeaders = ['nome_convidado', 'telefone'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    
+    if (missingHeaders.length > 0) {
+      toast({
+        title: "Arquivo inválido",
+        description: `Colunas obrigatórias faltando: ${missingHeaders.join(', ')}`,
+        variant: "destructive",
+      });
+      return { data: [], errors: [] };
+    }
+    
+    const data: ConviteData[] = [];
+    const errors: ImportError[] = [];
+    
+    // Skip header row
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue; // Skip empty lines
+      
+      const values = lines[i].split(',').map(v => v.trim());
+      const row: Record<string, string> = {};
+      
+      // Map values to headers
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      
+      // Validate required fields
+      if (!row.nome_convidado) {
+        errors.push({
+          row: i,
+          field: 'nome_convidado',
+          message: 'Nome do convidado é obrigatório'
+        });
+      }
+      
+      if (!row.telefone) {
+        errors.push({
+          row: i,
+          field: 'telefone',
+          message: 'Telefone é obrigatório'
+        });
+      } else if (!isValidPhoneNumber(row.telefone)) {
+        errors.push({
+          row: i,
+          field: 'telefone',
+          message: 'Formato de telefone inválido. Use formato internacional: +5511999999999'
+        });
+      }
+      
+      // If no errors for this row, add to data
+      if (!errors.some(e => e.row === i)) {
+        const convite: ConviteData = {
+          nome_convidado: row.nome_convidado,
+          telefone: formatPhoneNumber(row.telefone)
+        };
+        
+        // Add optional fields if present
+        if (row.mensagem_personalizada) {
+          convite.mensagem_personalizada = row.mensagem_personalizada;
+        } else if (row.observacao) {
+          convite.mensagem_personalizada = row.observacao;
+        }
+        
+        data.push(convite);
+      }
+    }
+    
+    return { data, errors };
+  }, [toast]);
+
+  const handleFileSelected = async (selectedFile: File) => {
+    setFile(selectedFile);
+    setValidating(true);
+    setErrors([]);
+    setConvites([]);
+    
+    try {
+      const text = await selectedFile.text();
+      const { data, errors } = parseCSV(text);
+      
+      setConvites(data);
+      setErrors(errors);
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Validação",
+          description: `Encontrados ${errors.length} erros no arquivo.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Validação",
+          description: `${data.length} convidados validados com sucesso.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error parsing CSV:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível ler o arquivo CSV. Verifique o formato.",
+        variant: "destructive",
+      });
+    } finally {
+      setValidating(false);
     }
   };
 
-  const invalidCount = parsedData.filter(item => !item.valid).length;
-  const validCount = parsedData.filter(item => item.valid).length;
+  const handleImportConvites = async () => {
+    if (!eventoId || convites.length === 0) return;
+    
+    try {
+      setImporting(true);
+      
+      // Call the API to import contacts
+      const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
+        method: "POST",
+        body: { convites }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Sucesso",
+        description: `${convites.length} convidados importados com sucesso.`,
+      });
+      
+      // Navigate back to the guest management page
+      navigate(`/eventos/${eventoId}/convidados`);
+    } catch (error: any) {
+      console.error("Error importing guests:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível importar os convidados.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow container mx-auto p-4 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Importar Convidados</h1>
-          <Button variant="outline" onClick={() => navigate(`/eventos/${eventoId}/convidados`)}>
-            Voltar
-          </Button>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Importar Convidados</h1>
+            {evento && (
+              <p className="text-gray-600">
+                Evento: {evento.nome} - {new Date(evento.data_evento).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate(`/eventos/${eventoId}/convidados`)}>
+              Voltar
+            </Button>
+            <CSVTemplateDownload />
+          </div>
         </div>
 
-        <Card>
+        <Card className="bg-white shadow">
           <CardHeader>
-            <CardTitle>
-              {step === "upload" ? "Enviar CSV de Convidados" : 
-               step === "review" ? "Revisar Dados dos Convidados" :
-               "Importando Convidados..."}
-            </CardTitle>
+            <CardTitle>Upload de CSV</CardTitle>
             <CardDescription>
-              {step === "upload" ? "Faça upload de um arquivo CSV com a lista de convidados" :
-               step === "review" ? "Verifique os dados antes de importar" :
-               "Processando seus dados..."}
+              Faça upload de um arquivo CSV contendo a lista de convidados.
+              Os campos obrigatórios são nome_convidado e telefone.
             </CardDescription>
+            <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+              <span>Não tem um modelo?</span>
+              <CSVTemplateDownload templateType="full" className="h-auto py-1" />
+            </div>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form>
-                {step === "upload" && (
-                  <div 
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-10 text-center"
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                  >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileUpload}
-                      accept=".csv"
-                      className="hidden"
-                      id="csv-upload"
-                    />
-                    <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-600">
-                      Arraste e solte seu arquivo CSV aqui, ou{" "}
-                      <label 
-                        htmlFor="csv-upload"
-                        className="text-primary hover:underline cursor-pointer"
-                      >
-                        clique para selecionar
-                      </label>
-                    </p>
-                    
-                    <div className="mt-8 text-left">
-                      <h3 className="font-medium mb-2">Formato esperado do CSV:</h3>
-                      <p className="text-sm text-gray-600 mb-2">
-                        O arquivo CSV deve ter cabeçalhos e pelo menos as colunas "nome" e "telefone".
-                        Opcionalmente, pode incluir "mensagem_personalizada".
-                      </p>
-                      <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
-                        nome,telefone,mensagem_personalizada<br />
-                        João Silva,(11) 98765-4321,Olá João!<br />
-                        Maria Santos,(11) 91234-5678,Espero você lá!
-                      </pre>
-                    </div>
+            <UploadAreaCSV
+              onFileSelected={handleFileSelected}
+              isLoading={validating}
+              accept=".csv"
+            />
+            
+            {errors.length > 0 && (
+              <Alert variant="destructive" className="mt-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erros na validação do arquivo</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+                    {errors.map((error, index) => (
+                      <div key={index} className="text-sm">
+                        Linha {error.row}: {error.message} (campo: {error.field})
+                      </div>
+                    ))}
                   </div>
-                )}
-                
-                {step === "review" && (
-                  <div className="space-y-4">
-                    {parsedData.length > 0 && (
-                      <>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div className="bg-green-50 text-green-700 px-3 py-1 rounded-full">
-                            Válidos: {validCount}
-                          </div>
-                          {invalidCount > 0 && (
-                            <div className="bg-red-50 text-red-700 px-3 py-1 rounded-full">
-                              Inválidos: {invalidCount}
-                            </div>
-                          )}
-                          <div className="bg-gray-100 px-3 py-1 rounded-full">
-                            Total: {parsedData.length}
-                          </div>
-                        </div>
-                        
-                        {invalidCount > 0 && (
-                          <Alert variant="destructive" className="mb-4">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Atenção</AlertTitle>
-                            <AlertDescription>
-                              Existem {invalidCount} registros com problemas que não serão importados.
-                              Apenas os registros válidos serão adicionados.
-                            </AlertDescription>
-                          </Alert>
-                        )}
-                        
-                        <div className="max-h-96 overflow-y-auto border rounded">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Nome</TableHead>
-                                <TableHead>Telefone</TableHead>
-                                <TableHead>Mensagem</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {parsedData.map((item, index) => (
-                                <TableRow key={index} className={!item.valid ? "bg-red-50" : ""}>
-                                  <TableCell>
-                                    <span className={`px-2 py-1 rounded-full text-xs ${
-                                      item.valid 
-                                        ? "bg-green-100 text-green-800" 
-                                        : "bg-red-100 text-red-800"
-                                    }`}>
-                                      {item.valid ? "Válido" : "Inválido"}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell>{item.nome_convidado}</TableCell>
-                                  <TableCell>{item.telefone}</TableCell>
-                                  <TableCell>{item.mensagem_personalizada || "-"}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-                
-                {step === "importing" && (
-                  <div className="text-center py-8">
-                    <p>Importando convidados, aguarde...</p>
-                  </div>
-                )}
-                
-              </form>
-            </Form>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            {step === "review" && (
-              <>
-                <Button variant="outline" onClick={handleTryAnother} disabled={loading}>
-                  Tentar outro arquivo
-                </Button>
-                <Button 
-                  onClick={handleImport} 
-                  disabled={loading || validCount === 0}
-                >
-                  {loading ? "Importando..." : `Importar ${validCount} convidados`}
-                </Button>
-              </>
+                </AlertDescription>
+              </Alert>
             )}
-          </CardFooter>
+            
+            {convites.length > 0 && errors.length === 0 && (
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center gap-2 text-green-600">
+                  <Check className="h-5 w-5" />
+                  <span className="font-medium">
+                    {convites.length} convidados validados com sucesso
+                  </span>
+                </div>
+                <Button 
+                  onClick={handleImportConvites}
+                  disabled={importing}
+                  className="w-full md:w-auto"
+                >
+                  {importing ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                      Importando...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Importar {convites.length} Convidados
+                    </span>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </main>
       <Footer />
