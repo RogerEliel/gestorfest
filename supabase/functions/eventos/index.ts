@@ -1,8 +1,5 @@
-import { createServer } from "http";
-import { createClient } from "@supabase/supabase-js";
-import express from "express";
 
-const app = express();
+import { createClient } from "npm:@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -269,19 +266,19 @@ async function deleteEvento(supabase, eventParam, usuario_id) {
 }
 
 // Função principal que processa as requisições
-createServer(async (req, res) => {
+async function handler(req) {
   if (req.method === "OPTIONS") {
     return handleOptions();
   }
 
   try {
     const supabase = createClient(
-      process.env.SUPABASE_URL ?? "",
-      process.env.SUPABASE_ANON_KEY ?? ""
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
     // Autenticar usuário
-    const authHeader = req.headers["authorization"] as string | undefined;
+    const authHeader = req.headers.get("authorization");
     const authResult = await authenticateUser(supabase, authHeader);
 
     if (authResult.error) {
@@ -294,7 +291,7 @@ createServer(async (req, res) => {
     const user = authResult.user;
 
     // Obter informações de rota
-    const url = new URL(req.url ?? "http://localhost");
+    const url = new URL(req.url);
     const pathSegments = url.pathname.split("/").filter(segment => segment);
 
     const isRootPath = pathSegments.length === 1;
@@ -319,20 +316,12 @@ createServer(async (req, res) => {
     if (isRootPath && req.method === "GET") {
       result = await getEventos(supabase, usuario_id);
     } else if (isRootPath && req.method === "POST") {
-      const buffers: any[] = [];
-      for await (const chunk of req) {
-        buffers.push(chunk);
-      }
-      const eventoData = JSON.parse(Buffer.concat(buffers).toString()) as EventoRequest;
+      const eventoData = await req.json() as EventoRequest;
       result = await createEvento(supabase, eventoData, usuario_id);
     } else if (hasEventParam && req.method === "GET") {
       result = await getEventoById(supabase, eventParam, usuario_id);
     } else if (hasEventParam && req.method === "PUT") {
-      const buffers: any[] = [];
-      for await (const chunk of req) {
-        buffers.push(chunk);
-      }
-      const eventoData = JSON.parse(Buffer.concat(buffers).toString()) as Partial<EventoRequest>;
+      const eventoData = await req.json() as Partial<EventoRequest>;
       result = await updateEvento(supabase, eventParam, eventoData, usuario_id);
     } else if (hasEventParam && req.method === "DELETE") {
       result = await deleteEvento(supabase, eventParam, usuario_id);
@@ -364,14 +353,7 @@ createServer(async (req, res) => {
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
-}).listen(3000, () => {
-  console.log("HTTP server running on http://localhost:3000");
-});
+}
 
-app.get("/", (req, res) => {
-  res.send("Hello, world!");
-});
-
-app.listen(3000, () => {
-  console.log("Servidor rodando em http://localhost:3000");
-});
+// Start the server using Deno.serve
+Deno.serve(handler);
