@@ -3,13 +3,18 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ImportError {
+  row: number;
+  error: string;
+}
+
 interface ImportHistoryRecord {
   id: string;
   data_importacao: string;
   total_registros: number;
   registros_importados: number;
   registros_falha: number;
-  detalhes_falhas?: Array<{ row: number; error: string }>;
+  detalhes_falhas?: ImportError[];
   usuario_id: string;
   evento_id: string;
 }
@@ -31,7 +36,15 @@ export const useImportHistory = (eventoId: string) => {
 
       if (error) throw error;
       
-      setHistory(data || []);
+      if (data) {
+        // Convert the JSON data to ensure type compatibility
+        const typedHistory: ImportHistoryRecord[] = data.map(item => ({
+          ...item,
+          detalhes_falhas: item.detalhes_falhas as ImportError[] | undefined
+        }));
+        
+        setHistory(typedHistory);
+      }
     } catch (error: any) {
       console.error("Error fetching import history:", error);
       toast({
