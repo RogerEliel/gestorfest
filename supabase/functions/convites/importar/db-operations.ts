@@ -20,6 +20,18 @@ export async function insertGuestData(
 ) {
   // If nothing to insert, return early with failures
   if (toInsert.length === 0) {
+    // Log the import operation with zero inserts
+    await supabase
+      .from("auditoria_importacoes")
+      .insert({
+        evento_id: eventoId,
+        usuario_id: usuario_id,
+        total_registros: failures.length,
+        registros_importados: 0,
+        registros_falha: failures.length,
+        detalhes_falhas: failures.length > 0 ? failures : null
+      });
+      
     return {
       success: true,
       response: new Response(

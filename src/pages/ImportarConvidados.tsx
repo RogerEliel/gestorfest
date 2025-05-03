@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import Footer from "@/components/Footer";
 import ImportHeader from "@/components/import/ImportHeader";
 import ImportCard from "@/components/import/ImportCard";
+import ImportHistoryDashboard from "@/components/import/ImportHistoryDashboard";
 import { useImportConvites } from "@/hooks/useImportConvites";
 import { useEventoDetails } from "@/hooks/useEventoDetails";
 
@@ -37,6 +38,10 @@ const ImportarConvidados = () => {
           onImport={handleImportContacts}
           onRemoveFile={removeFile}
         />
+        
+        {eventoId && (
+          <ImportHistoryDashboard eventoId={eventoId} />
+        )}
       </main>
       <Footer />
     </div>

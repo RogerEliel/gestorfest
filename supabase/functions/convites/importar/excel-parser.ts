@@ -1,176 +1,125 @@
 
-import * as XLSX from "npm:xlsx@0.18.5";
-import { isValidPhoneNumber, formatPhoneNumber } from "./utils.ts";
+// Import required dependencies
+import * as XLSX from 'npm:xlsx';
 import { corsHeaders } from "./utils.ts";
 
+// Define interface for import errors
 export interface ImportError {
   row: number;
   error: string;
 }
 
-/**
- * Parses and validates Excel file data
- */
-export async function parseExcelFile(file: File) {
-  // Check file type
-  if (!file.name.toLowerCase().endsWith('.xlsx')) {
-    return {
-      success: false,
-      response: new Response(
-        JSON.stringify({ error: "Formato de arquivo inválido. Use .xlsx" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      ),
-      data: null,
-      toInsert: null,
-      failures: null
-    };
-  }
+// Interface for successful parse result
+interface ParseResult {
+  success: boolean;
+  response?: Response;
+  toInsert?: Array<{
+    nome_convidado: string;
+    telefone: string;
+    mensagem_personalizada: string | null;
+    status: string;
+  }>;
+  failures?: ImportError[];
+}
 
+// Main function to parse Excel file
+export async function parseExcelFile(file: File): Promise<ParseResult> {
   try {
-    // Read the Excel file
-    const fileBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(fileBuffer, { type: "array" });
-
-    // Check if the workbook has sheets
-    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: "Planilha vazia ou inválida" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        ),
-        data: null,
-        toInsert: null,
-        failures: null
-      };
-    }
-
-    // Try to find the sheet named "Convidados" or use the first sheet
-    const sheetName = workbook.SheetNames.find(name => name.toLowerCase() === "convidados") || workbook.SheetNames[0];
+    console.log("Starting Excel parsing...");
+    
+    // Read the file as array buffer
+    const buffer = await file.arrayBuffer();
+    
+    // Parse the Excel file
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    
+    // Get the first sheet
+    const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-
-    if (!worksheet) {
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: "Aba 'Convidados' não encontrada" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        ),
-        data: null,
-        toInsert: null,
-        failures: null
-      };
-    }
-
+    
     // Convert to JSON
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+    const data = XLSX.utils.sheet_to_json(worksheet);
+    
+    // Validate data format
+    if (!Array.isArray(data) || data.length === 0) {
       return {
         success: false,
         response: new Response(
-          JSON.stringify({ error: "Nenhum dado encontrado na planilha" }),
+          JSON.stringify({ error: "Formato de arquivo inválido. Não há dados para importar." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        ),
-        data: null,
-        toInsert: null,
-        failures: null
+        )
       };
     }
-
-    console.log("Excel data parsed, rows:", jsonData.length);
-
-    // Validate the structure - check if required columns exist
-    const firstRow = jsonData[0] as Record<string, any>;
-    const requiredColumns = ['nome_convidado', 'telefone'];
-    const missingColumns = requiredColumns.filter(col => !(col in firstRow));
-
-    if (missingColumns.length > 0) {
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: `Colunas obrigatórias faltando: ${missingColumns.join(", ")}` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        ),
-        data: null,
-        toInsert: null,
-        failures: null
-      };
-    }
-
-    // Validate rows and prepare data for insertion
-    const toInsert: Array<{
+    
+    console.log(`Found ${data.length} rows of data`);
+    
+    // Extract and validate data
+    const recordsToInsert: Array<{
       nome_convidado: string;
       telefone: string;
       mensagem_personalizada: string | null;
-      evento_id: string;
       status: string;
     }> = [];
     
     const failures: ImportError[] = [];
-
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i] as Record<string, any>;
-      const rowNumber = i + 2; // +2 because Excel is 1-indexed and we skip the header row
-
-      // Basic validation
-      if (!row.nome_convidado || row.nome_convidado.trim() === '') {
+    
+    // Process each row
+    data.forEach((row: any, index: number) => {
+      const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is headers
+      
+      // Check for required fields
+      if (!row.nome_convidado) {
         failures.push({
           row: rowNumber,
-          error: "Nome do convidado é obrigatório"
+          error: "Campo 'nome_convidado' obrigatório não fornecido"
         });
-        continue;
+        return;
       }
-
-      if (!row.telefone || row.telefone.toString().trim() === '') {
+      
+      if (!row.telefone) {
         failures.push({
           row: rowNumber,
-          error: "Telefone do convidado é obrigatório"
+          error: "Campo 'telefone' obrigatório não fornecido"
         });
-        continue;
+        return;
       }
-
-      // Phone validation
-      const phone = row.telefone.toString();
-      if (!isValidPhoneNumber(phone)) {
+      
+      // Validate phone number format (simple validation)
+      const phone = String(row.telefone).replace(/\D/g, '');
+      if (phone.length < 10 || phone.length > 15) {
         failures.push({
           row: rowNumber,
-          error: "Formato de telefone inválido. Use formato internacional: +5511999999999"
+          error: "Número de telefone inválido"
         });
-        continue;
+        return;
       }
-
-      // Sanitize data
-      const convite = {
-        nome_convidado: String(row.nome_convidado).trim().slice(0, 255),
-        telefone: formatPhoneNumber(phone),
-        mensagem_personalizada: row.observacao ? String(row.observacao).trim().slice(0, 500) : null,
-        evento_id: "", // Will be filled in with eventoId
+      
+      // Add validated record
+      recordsToInsert.push({
+        nome_convidado: String(row.nome_convidado).trim(),
+        telefone: phone,
+        mensagem_personalizada: row.observacao ? String(row.observacao) : null,
         status: "pendente"
-      };
-
-      toInsert.push(convite);
-    }
-
+      });
+    });
+    
+    console.log(`Validation complete. Valid: ${recordsToInsert.length}, Failed: ${failures.length}`);
+    
+    // Return results
     return {
       success: true,
-      response: null,
-      data: jsonData,
-      toInsert,
-      failures
+      toInsert: recordsToInsert,
+      failures: failures
     };
-  } catch (error) {
-    console.error("Error parsing Excel file:", error);
     
+  } catch (error) {
+    console.error("Excel parsing error:", error);
     return {
       success: false,
       response: new Response(
-        JSON.stringify({ error: "Erro ao processar arquivo Excel: " + (error instanceof Error ? error.message : "erro desconhecido") }),
+        JSON.stringify({ error: "Erro ao processar o arquivo Excel" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      ),
-      data: null,
-      toInsert: null,
-      failures: null
+      )
     };
   }
 }
