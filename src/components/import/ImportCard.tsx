@@ -3,10 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import UploadAreaXLSX from "@/components/UploadAreaXLSX";
 import ImportErrorDisplay from "./ImportErrorDisplay";
 import SelectedFileDisplay from "./SelectedFileDisplay";
+import ImportDataPreview from "./ImportDataPreview";
 
 interface ImportError {
   row: number;
   error: string;
+}
+
+interface ImportPreviewItem {
+  nome_convidado: string;
+  telefone: string;
+  mensagem_personalizada?: string | null;
+  isValid: boolean;
+  error?: string;
 }
 
 interface ImportCardProps {
@@ -14,8 +23,12 @@ interface ImportCardProps {
   failures: ImportError[];
   validating: boolean;
   importing: boolean;
+  showPreview: boolean;
+  previewData: ImportPreviewItem[];
   onFileSelected: (file: File) => void;
+  onValidate: () => void;
   onImport: () => void;
+  onCancel: () => void;
   onRemoveFile: () => void;
 }
 
@@ -24,8 +37,12 @@ const ImportCard = ({
   failures,
   validating,
   importing,
+  showPreview,
+  previewData,
   onFileSelected,
+  onValidate,
   onImport,
+  onCancel,
   onRemoveFile
 }: ImportCardProps) => {
   return (
@@ -38,20 +55,33 @@ const ImportCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <UploadAreaXLSX
-          onFileSelected={onFileSelected}
-          isLoading={validating}
-          accept=".xlsx"
-        />
+        {!showPreview && (
+          <>
+            <UploadAreaXLSX
+              onFileSelected={onFileSelected}
+              isLoading={validating}
+              accept=".xlsx"
+            />
+            
+            <ImportErrorDisplay failures={failures} />
+            
+            {file && (
+              <SelectedFileDisplay 
+                file={file}
+                validating={validating}
+                onRemoveFile={onRemoveFile}
+                onValidate={onValidate}
+              />
+            )}
+          </>
+        )}
         
-        <ImportErrorDisplay failures={failures} />
-        
-        {file && (
-          <SelectedFileDisplay 
-            file={file}
-            importing={importing}
-            onRemoveFile={onRemoveFile}
-            onImport={onImport}
+        {showPreview && (
+          <ImportDataPreview
+            data={previewData}
+            isLoading={importing}
+            onConfirm={onImport}
+            onCancel={onCancel}
           />
         )}
       </CardContent>

@@ -15,8 +15,12 @@ const ImportarConvidados = () => {
     failures, 
     validating, 
     importing, 
+    previewData,
+    showPreview,
     handleFileSelected, 
+    validateFile,
     handleImportContacts,
+    cancelImport,
     removeFile
   } = useImportConvites(eventoId);
 
@@ -34,8 +38,12 @@ const ImportarConvidados = () => {
           failures={failures}
           validating={validating}
           importing={importing}
+          showPreview={showPreview}
+          previewData={previewData}
           onFileSelected={handleFileSelected}
+          onValidate={validateFile}
           onImport={handleImportContacts}
+          onCancel={cancelImport}
           onRemoveFile={removeFile}
         />
         

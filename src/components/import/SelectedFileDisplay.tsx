@@ -1,46 +1,46 @@
 
-import { Check, Upload, X } from "lucide-react";
+import { Eye, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SelectedFileDisplayProps {
   file: File;
-  importing: boolean;
+  validating: boolean;
   onRemoveFile: () => void;
-  onImport: () => void;
+  onValidate: () => void;
 }
 
 const SelectedFileDisplay = ({
   file,
-  importing,
+  validating,
   onRemoveFile,
-  onImport,
+  onValidate,
 }: SelectedFileDisplayProps) => {
   return (
     <div className="mt-6 space-y-4">
       <div className="flex items-center gap-2 text-green-600">
-        <Check className="h-5 w-5" />
+        <Upload className="h-5 w-5" />
         <span className="font-medium">
           Arquivo selecionado: {file.name}
         </span>
       </div>
       <Button 
-        onClick={onImport}
-        disabled={importing || !file}
+        onClick={onValidate}
+        disabled={validating || !file}
         className="w-full md:w-auto"
       >
-        {importing ? (
+        {validating ? (
           <span className="flex items-center">
             <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-            Importando...
+            Validando...
           </span>
         ) : (
           <span className="flex items-center">
-            <Upload className="h-4 w-4 mr-2" />
-            Importar Convidados
+            <Eye className="h-4 w-4 mr-2" />
+            Pré-visualizar dados
           </span>
         )}
       </Button>
-      {!importing && (
+      {!validating && (
         <Button
           type="button"
           variant="outline"
