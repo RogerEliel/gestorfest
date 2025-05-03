@@ -1,5 +1,4 @@
-
-import { createServer } from "http";
+import { createServer } from "npm:http";
 // Fix the non-relative import by using the npm: prefix
 import { createClient } from "npm:@supabase/supabase-js";
 
