@@ -87,16 +87,17 @@ const ImportarConvidados = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      // Call the API to import contacts
+      // Call the API to import contacts using the dedicated import endpoint
       const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
         method: "POST",
         body: formData,
-        headers: {
-          // Do not set Content-Type, it will be set automatically with the correct boundary for FormData
-        }
+        // FormData sets the correct Content-Type automatically with boundary
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Import error:", error);
+        throw error;
+      }
       
       const response = data as ImportResponse;
       

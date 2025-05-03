@@ -1,3 +1,4 @@
+
 // Import required dependencies
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../../eventos/utils.ts";
@@ -54,6 +55,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("Import handler started");
+    
     // Create Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -63,7 +66,12 @@ Deno.serve(async (req) => {
     // Parse request details
     const url = new URL(req.url);
     const pathSegments = url.pathname.split("/").filter(segment => segment);
+    
+    // Extract the evento ID from the path
+    // Path should be: /convites/importar/:eventoId
     const eventoId = pathSegments[2]; // Get evento ID from URL
+
+    console.log("Extracted event ID:", eventoId);
 
     if (!eventoId) {
       return new Response(
@@ -138,6 +146,8 @@ Deno.serve(async (req) => {
     const formData = await req.formData();
     const file = formData.get("file");
 
+    console.log("File received:", file ? "yes" : "no");
+
     if (!file || !(file instanceof File)) {
       return new Response(
         JSON.stringify({ error: "Arquivo não encontrado ou inválido" }),
@@ -185,6 +195,8 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("Excel data parsed, rows:", jsonData.length);
 
     // Validate the structure - check if required columns exist
     const firstRow = jsonData[0] as Record<string, any>;
@@ -256,6 +268,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("Ready to insert:", toInsert.length, "records");
+
     // Begin transaction to insert the data
     let insertedCount = 0;
     const { data: insertData, error: insertError } = await supabase
@@ -272,6 +286,8 @@ Deno.serve(async (req) => {
     }
 
     insertedCount = insertData ? insertData.length : 0;
+
+    console.log("Successfully inserted:", insertedCount, "records");
 
     // Log the import in the audit table
     await supabase

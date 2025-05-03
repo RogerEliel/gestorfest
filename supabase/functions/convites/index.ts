@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
@@ -595,6 +594,14 @@ serve(async (req) => {
     
     // For authenticated routes, ensure usuario_id is available and non-null
     const usuario_id = isPublicResponse ? null : authResult.usuario_id!;
+    
+    // Special case for importar endpoint - redirect to the dedicated import handler
+    if (pathSegments.length >= 2 && pathSegments[0] === 'importar') {
+      // Pass the request to the importar function
+      // The importar function will handle its own authentication and processing
+      console.log("Redirecting to importar handler:", pathSegments);
+      return await fetch(req);
+    }
     
     // Improved routing with clear path segment extraction
     // Attempt to extract common path patterns
