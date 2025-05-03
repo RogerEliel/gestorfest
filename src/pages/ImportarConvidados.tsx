@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertCircle, Check, Upload } from "lucide-react";
-import UploadAreaCSV from "@/components/UploadAreaCSV";
-import CSVTemplateDownload from "@/components/CSVTemplateDownload";
+import UploadAreaXLSX from "@/components/UploadAreaXLSX";
+import ExcelTemplateDownload from "@/components/CSVTemplateDownload";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhoneNumber, formatPhoneNumber } from "@/lib/validation";
+import * as XLSX from "xlsx";
 
 interface ConviteData {
   nome_convidado: string;
@@ -65,79 +67,105 @@ const ImportarConvidados = () => {
     }
   };
 
-  const parseCSV = useCallback((csvText: string) => {
-    const lines = csvText.split(/\r\n|\n/);
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    
-    // Validate required headers
-    const requiredHeaders = ['nome_convidado', 'telefone'];
-    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-    
-    if (missingHeaders.length > 0) {
-      toast({
-        title: "Arquivo inválido",
-        description: `Colunas obrigatórias faltando: ${missingHeaders.join(', ')}`,
-        variant: "destructive",
-      });
-      return { data: [], errors: [] };
-    }
-    
-    const data: ConviteData[] = [];
-    const errors: ImportError[] = [];
-    
-    // Skip header row
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue; // Skip empty lines
+  const parseExcel = useCallback(async (file: File) => {
+    return new Promise<{ data: ConviteData[], errors: ImportError[] }>((resolve, reject) => {
+      const reader = new FileReader();
       
-      const values = lines[i].split(',').map(v => v.trim());
-      const row: Record<string, string> = {};
-      
-      // Map values to headers
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-      
-      // Validate required fields
-      if (!row.nome_convidado) {
-        errors.push({
-          row: i,
-          field: 'nome_convidado',
-          message: 'Nome do convidado é obrigatório'
-        });
-      }
-      
-      if (!row.telefone) {
-        errors.push({
-          row: i,
-          field: 'telefone',
-          message: 'Telefone é obrigatório'
-        });
-      } else if (!isValidPhoneNumber(row.telefone)) {
-        errors.push({
-          row: i,
-          field: 'telefone',
-          message: 'Formato de telefone inválido. Use formato internacional: +5511999999999'
-        });
-      }
-      
-      // If no errors for this row, add to data
-      if (!errors.some(e => e.row === i)) {
-        const convite: ConviteData = {
-          nome_convidado: row.nome_convidado,
-          telefone: formatPhoneNumber(row.telefone)
-        };
-        
-        // Map observacao to mensagem_personalizada
-        if (row.observacao) {
-          convite.mensagem_personalizada = row.observacao;
+      reader.onload = (e) => {
+        try {
+          const data: ConviteData[] = [];
+          const errors: ImportError[] = [];
+          
+          const binaryString = e.target?.result;
+          const workbook = XLSX.read(binaryString, { type: 'binary' });
+          
+          // Get first sheet
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { header: 1 });
+          
+          if (jsonData.length < 2) {
+            reject(new Error("Arquivo vazio ou sem dados"));
+            return;
+          }
+          
+          // Get headers (first row)
+          const headers = jsonData[0].map((h: any) => String(h).trim().toLowerCase());
+          
+          // Validate required headers
+          const requiredHeaders = ['nome_convidado', 'telefone'];
+          const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+          
+          if (missingHeaders.length > 0) {
+            reject(new Error(`Colunas obrigatórias faltando: ${missingHeaders.join(', ')}`));
+            return;
+          }
+          
+          // Process rows (skip header)
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || row.length === 0) continue; // Skip empty rows
+            
+            const rowObj: Record<string, any> = {};
+            headers.forEach((header, index) => {
+              rowObj[header] = row[index] !== undefined ? String(row[index]).trim() : '';
+            });
+            
+            // Validate required fields
+            if (!rowObj.nome_convidado) {
+              errors.push({
+                row: i + 1, // Excel rows are 1-indexed
+                field: 'nome_convidado',
+                message: 'Nome do convidado é obrigatório'
+              });
+            }
+            
+            if (!rowObj.telefone) {
+              errors.push({
+                row: i + 1,
+                field: 'telefone',
+                message: 'Telefone é obrigatório'
+              });
+            } else if (!isValidPhoneNumber(rowObj.telefone)) {
+              errors.push({
+                row: i + 1,
+                field: 'telefone',
+                message: 'Formato de telefone inválido. Use formato internacional: +5511999999999'
+              });
+            }
+            
+            // If no errors for this row, add to data
+            if (!errors.some(e => e.row === i + 1)) {
+              const convite: ConviteData = {
+                nome_convidado: rowObj.nome_convidado,
+                telefone: formatPhoneNumber(rowObj.telefone)
+              };
+              
+              // Map observacao to mensagem_personalizada
+              if (rowObj.observacao) {
+                convite.mensagem_personalizada = rowObj.observacao;
+              }
+              
+              data.push(convite);
+            }
+          }
+          
+          resolve({ data, errors });
+        } catch (error) {
+          console.error("Error parsing Excel:", error);
+          reject(new Error("Erro ao processar o arquivo Excel"));
         }
-        
-        data.push(convite);
-      }
-    }
-    
-    return { data, errors };
-  }, [toast]);
+      };
+      
+      reader.onerror = () => {
+        reject(new Error("Erro ao ler o arquivo"));
+      };
+      
+      reader.readAsBinaryString(file);
+    });
+  }, []);
 
   const handleFileSelected = async (selectedFile: File) => {
     setFile(selectedFile);
@@ -146,8 +174,7 @@ const ImportarConvidados = () => {
     setConvites([]);
     
     try {
-      const text = await selectedFile.text();
-      const { data, errors } = parseCSV(text);
+      const { data, errors } = await parseExcel(selectedFile);
       
       setConvites(data);
       setErrors(errors);
@@ -164,11 +191,11 @@ const ImportarConvidados = () => {
           description: `${data.length} convidados validados com sucesso.`,
         });
       }
-    } catch (error) {
-      console.error("Error parsing CSV:", error);
+    } catch (error: any) {
+      console.error("Error processing Excel:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível ler o arquivo CSV. Verifique o formato.",
+        description: error.message || "Não foi possível ler o arquivo Excel. Verifique o formato.",
         variant: "destructive",
       });
     } finally {
@@ -225,23 +252,23 @@ const ImportarConvidados = () => {
             <Button variant="outline" onClick={() => navigate(`/eventos/${eventoId}/convidados`)}>
               Voltar
             </Button>
-            <CSVTemplateDownload />
+            <ExcelTemplateDownload />
           </div>
         </div>
 
         <Card className="bg-white shadow">
           <CardHeader>
-            <CardTitle>Upload de CSV</CardTitle>
+            <CardTitle>Upload de Excel</CardTitle>
             <CardDescription>
-              Faça upload de um arquivo CSV contendo a lista de convidados.
+              Faça upload de um arquivo Excel (.xlsx) contendo a lista de convidados.
               Os campos obrigatórios são nome_convidado e telefone. Campo opcional: observacao.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UploadAreaCSV
+            <UploadAreaXLSX
               onFileSelected={handleFileSelected}
               isLoading={validating}
-              accept=".csv"
+              accept=".xlsx"
             />
             
             {errors.length > 0 && (

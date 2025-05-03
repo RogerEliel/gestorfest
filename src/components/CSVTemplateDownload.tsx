@@ -3,41 +3,46 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, Download } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import * as XLSX from "xlsx";
 
-interface CSVTemplateDownloadProps {
+interface ExcelTemplateDownloadProps {
   className?: string;
 }
 
-const CSVTemplateDownload = ({ className }: CSVTemplateDownloadProps) => {
+const ExcelTemplateDownload = ({ className }: ExcelTemplateDownloadProps) => {
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
-  const generateCSV = (): string => {
-    // Header row with required fields
-    const csv = "nome_convidado,telefone,observacao";
-    
-    // Add example rows
-    const exampleData = [
+  const generateExcel = (): Uint8Array => {
+    // Create data structure
+    const data = [
+      ["nome_convidado", "telefone", "observacao"], // Header row
       ["João da Silva", "+5511998765432", "Parente próximo"],
       ["Maria Oliveira", "+5511987654321", "Levar presente"],
       ["Pedro Santos", "+5511976543210", "Vegetariano"],
       ["Ana Pereira", "+5511965432109", "Traje esporte fino"]
     ];
     
-    const rows = exampleData.map(row => row.join(",")).join("\n");
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
     
-    return `${csv}\n${rows}`;
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Convidados");
+    
+    // Generate buffer
+    return XLSX.write(wb, { type: "array", bookType: "xlsx" });
   };
 
   const downloadTemplate = () => {
     try {
       setDownloading(true);
       
-      // Generate CSV content
-      const csvContent = generateCSV();
+      // Generate Excel content
+      const excelContent = generateExcel();
       
-      // Create a Blob with the CSV content
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Create a Blob with the Excel content
+      const blob = new Blob([excelContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       
       // Create a temporary URL for the Blob
       const url = URL.createObjectURL(blob);
@@ -45,7 +50,7 @@ const CSVTemplateDownload = ({ className }: CSVTemplateDownloadProps) => {
       // Create a link element and trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `modelo_convidados.csv`);
+      link.setAttribute('download', `modelo_convidados.xlsx`);
       document.body.appendChild(link);
       link.click();
       
@@ -83,9 +88,9 @@ const CSVTemplateDownload = ({ className }: CSVTemplateDownloadProps) => {
       ) : (
         <Download className="h-4 w-4 mr-2" />
       )}
-      {downloading ? "Baixado" : "Baixar modelo CSV"}
+      {downloading ? "Baixado" : "Baixar modelo Excel"}
     </Button>
   );
 };
 
-export default CSVTemplateDownload;
+export default ExcelTemplateDownload;
