@@ -18,7 +18,7 @@ interface AuthContextType {
   }>;
   signOut: () => Promise<void>;
   getUser: () => Promise<User | null>;
-  setSession: (session: Session | null) => void; // Added this line
+  setSession: (session: Session | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signIn,
     signOut,
     getUser,
-    setSession, // Added this line to include in the context value
+    setSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

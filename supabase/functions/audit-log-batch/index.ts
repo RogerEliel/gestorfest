@@ -1,5 +1,5 @@
+
 import { createServer } from "npm:http";
-// Fix the non-relative import by using the npm: prefix
 import { createClient } from "npm:@supabase/supabase-js";
 
 const corsHeaders = {
@@ -62,7 +62,7 @@ const handler = async (req) => {
     }
 
     // Get the authorization header
-    const authHeader = req.headers["authorization"];
+    const authHeader = req.headers.get("authorization");
     
     if (!authHeader) {
       return new Response(
@@ -120,6 +120,4 @@ const handler = async (req) => {
 };
 
 // Start the server
-createServer(handler).listen(3001, () => {
-  console.log("HTTP server running on http://localhost:3001");
-});
+Deno.serve(handler);
