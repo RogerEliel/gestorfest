@@ -1,6 +1,8 @@
+import { createServer } from "http";
+import { createClient } from "@supabase/supabase-js";
+import express from "express";
 
-import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+const app = express();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,16 +48,16 @@ async function ensureUserProfile(supabase, user) {
   // Se não houver perfil, vamos verificar se o usuário existe
   if (!profileData?.usuario_id) {
     console.log("Profile not found, attempting to create one");
-    
+
     // Verificar se existe um usuário com este email
     const { data: usuarioExistente } = await supabase
       .from("usuarios")
       .select("id")
       .eq("email", user.email)
       .single();
-      
+
     let usuario_id;
-    
+
     if (usuarioExistente) {
       console.log("Found existing usuario with this email");
       usuario_id = usuarioExistente.id;
@@ -70,19 +72,19 @@ async function ensureUserProfile(supabase, user) {
           tipo: 'cliente'
         }])
         .select();
-        
+
       if (usuarioError || !newUsuario?.length) {
         console.error("Error creating usuario:", usuarioError);
-        return { 
-          error: "Erro ao criar usuário", 
-          details: usuarioError?.message, 
-          status: 500 
+        return {
+          error: "Erro ao criar usuário",
+          details: usuarioError?.message,
+          status: 500
         };
       }
-      
+
       usuario_id = newUsuario[0].id;
     }
-    
+
     // Criar ou atualizar o perfil
     const { error: profileError } = await supabase
       .from("profiles")
@@ -90,16 +92,16 @@ async function ensureUserProfile(supabase, user) {
         id: user.id,
         usuario_id: usuario_id
       }]);
-      
+
     if (profileError) {
       console.error("Error creating profile:", profileError);
-      return { 
-        error: "Erro ao criar perfil", 
-        details: profileError.message, 
-        status: 500 
+      return {
+        error: "Erro ao criar perfil",
+        details: profileError.message,
+        status: 500
       };
     }
-    
+
     // Definir o perfil para uso posterior
     profileData = { usuario_id };
   }
@@ -213,7 +215,7 @@ async function getEventoById(supabase, eventParam, usuario_id) {
 // Função para atualizar um evento
 async function updateEvento(supabase, eventParam, eventoData, usuario_id) {
   const updatedData = { ...eventoData };
-  
+
   if (eventoData.nome) {
     const { data: slugData, error: slugError } = await supabase.rpc(
       "generate_unique_slug",
@@ -267,32 +269,32 @@ async function deleteEvento(supabase, eventParam, usuario_id) {
 }
 
 // Função principal que processa as requisições
-serve(async (req) => {
+createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     return handleOptions();
   }
 
   try {
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      process.env.SUPABASE_URL ?? "",
+      process.env.SUPABASE_ANON_KEY ?? ""
     );
 
     // Autenticar usuário
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers["authorization"] as string | undefined;
     const authResult = await authenticateUser(supabase, authHeader);
-    
+
     if (authResult.error) {
       return new Response(
         JSON.stringify({ error: authResult.error }),
         { status: authResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-    
+
     const user = authResult.user;
 
     // Obter informações de rota
-    const url = new URL(req.url);
+    const url = new URL(req.url ?? "http://localhost");
     const pathSegments = url.pathname.split("/").filter(segment => segment);
 
     const isRootPath = pathSegments.length === 1;
@@ -301,14 +303,14 @@ serve(async (req) => {
 
     // Garantir perfil de usuário
     const profileResult = await ensureUserProfile(supabase, user);
-    
+
     if (profileResult.error) {
       return new Response(
         JSON.stringify({ error: profileResult.error, details: profileResult.details }),
         { status: profileResult.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-    
+
     const usuario_id = profileResult.profile.usuario_id;
 
     // Rotear a requisição para a função apropriada
@@ -317,12 +319,20 @@ serve(async (req) => {
     if (isRootPath && req.method === "GET") {
       result = await getEventos(supabase, usuario_id);
     } else if (isRootPath && req.method === "POST") {
-      const eventoData = await req.json() as EventoRequest;
+      const buffers: any[] = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      const eventoData = JSON.parse(Buffer.concat(buffers).toString()) as EventoRequest;
       result = await createEvento(supabase, eventoData, usuario_id);
     } else if (hasEventParam && req.method === "GET") {
       result = await getEventoById(supabase, eventParam, usuario_id);
     } else if (hasEventParam && req.method === "PUT") {
-      const eventoData = await req.json() as Partial<EventoRequest>;
+      const buffers: any[] = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      const eventoData = JSON.parse(Buffer.concat(buffers).toString()) as Partial<EventoRequest>;
       result = await updateEvento(supabase, eventParam, eventoData, usuario_id);
     } else if (hasEventParam && req.method === "DELETE") {
       result = await deleteEvento(supabase, eventParam, usuario_id);
@@ -354,4 +364,14 @@ serve(async (req) => {
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
+}).listen(3000, () => {
+  console.log("HTTP server running on http://localhost:3000");
+});
+
+app.get("/", (req, res) => {
+  res.send("Hello, world!");
+});
+
+app.listen(3000, () => {
+  console.log("Servidor rodando em http://localhost:3000");
 });
