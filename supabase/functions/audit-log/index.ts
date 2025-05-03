@@ -1,6 +1,5 @@
 
-import { createServer } from "http";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,8 +47,8 @@ const handler = async (req) => {
   try {
     // Connect to Supabase
     const supabase = createClient(
-      process.env.SUPABASE_URL ?? "",
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
     // Handle CORS preflight requests
@@ -58,7 +57,7 @@ const handler = async (req) => {
     }
 
     // Get the authorization header
-    const authHeader = req.headers["authorization"];
+    const authHeader = req.headers.get("authorization");
     
     if (!authHeader) {
       return new Response(
@@ -109,6 +108,4 @@ const handler = async (req) => {
 };
 
 // Start the server
-createServer(handler).listen(3000, () => {
-  console.log("HTTP server running on http://localhost:3000");
-});
+Deno.serve(handler);
