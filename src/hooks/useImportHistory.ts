@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/integrations/supabase/types";
 
 interface ImportError {
   row: number;
@@ -40,7 +41,15 @@ export const useImportHistory = (eventoId: string) => {
         // Convert the JSON data to ensure type compatibility
         const typedHistory: ImportHistoryRecord[] = data.map(item => ({
           ...item,
-          detalhes_falhas: item.detalhes_falhas as ImportError[] | undefined
+          detalhes_falhas: item.detalhes_falhas ? 
+            // Properly convert from Json to ImportError[] with type checking
+            (Array.isArray(item.detalhes_falhas) ? 
+              item.detalhes_falhas.map((error: any) => ({
+                row: typeof error.row === 'number' ? error.row : 0,
+                error: typeof error.error === 'string' ? error.error : String(error.error || '')
+              })) 
+              : undefined) 
+            : undefined
         }));
         
         setHistory(typedHistory);
