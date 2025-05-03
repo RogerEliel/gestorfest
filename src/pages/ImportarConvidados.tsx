@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -128,10 +127,8 @@ const ImportarConvidados = () => {
           telefone: formatPhoneNumber(row.telefone)
         };
         
-        // Add optional fields if present
-        if (row.mensagem_personalizada) {
-          convite.mensagem_personalizada = row.mensagem_personalizada;
-        } else if (row.observacao) {
+        // Map observacao to mensagem_personalizada
+        if (row.observacao) {
           convite.mensagem_personalizada = row.observacao;
         }
         
@@ -237,12 +234,8 @@ const ImportarConvidados = () => {
             <CardTitle>Upload de CSV</CardTitle>
             <CardDescription>
               Faça upload de um arquivo CSV contendo a lista de convidados.
-              Os campos obrigatórios são nome_convidado e telefone.
+              Os campos obrigatórios são nome_convidado e telefone. Campo opcional: observacao.
             </CardDescription>
-            <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-              <span>Não tem um modelo?</span>
-              <CSVTemplateDownload templateType="full" className="h-auto py-1" />
-            </div>
           </CardHeader>
           <CardContent>
             <UploadAreaCSV

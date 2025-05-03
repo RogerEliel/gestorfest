@@ -5,43 +5,36 @@ import { Download, Check } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface CSVTemplateDownloadProps {
-  templateType?: 'basic' | 'full';
   className?: string;
 }
 
-const CSVTemplateDownload = ({ templateType = 'basic', className }: CSVTemplateDownloadProps) => {
+const CSVTemplateDownload = ({ className }: CSVTemplateDownloadProps) => {
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
-  const generateCSV = (type: 'basic' | 'full'): string => {
-    // Header row always includes required fields
-    let csv = "nome_convidado,telefone";
+  const generateCSV = (): string => {
+    // Header row with required fields
+    const csv = "nome_convidado,telefone,observacao";
     
-    // For full template, include optional fields
-    if (type === 'full') {
-      csv += ",email,observacao";
-    }
+    // Add example rows
+    const exampleData = [
+      ["João da Silva", "+5511998765432", "Parente próximo"],
+      ["Maria Oliveira", "+5511987654321", "Levar presente"],
+      ["Pedro Santos", "+5511976543210", "Vegetariano"],
+      ["Ana Pereira", "+5511965432109", "Traje esporte fino"]
+    ];
     
-    // Add a few example rows
-    csv += "\nNome do Convidado 1,+5511999999999";
-    if (type === 'full') {
-      csv += ",email1@exemplo.com,Observação sobre o convidado 1";
-    }
+    const rows = exampleData.map(row => row.join(",")).join("\n");
     
-    csv += "\nNome do Convidado 2,+5511988888888";
-    if (type === 'full') {
-      csv += ",email2@exemplo.com,Observação sobre o convidado 2";
-    }
-    
-    return csv;
+    return `${csv}\n${rows}`;
   };
 
   const downloadTemplate = () => {
     try {
       setDownloading(true);
       
-      // Generate CSV content based on template type
-      const csvContent = generateCSV(templateType);
+      // Generate CSV content
+      const csvContent = generateCSV();
       
       // Create a Blob with the CSV content
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -52,7 +45,7 @@ const CSVTemplateDownload = ({ templateType = 'basic', className }: CSVTemplateD
       // Create a link element and trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `modelo_convidados_${templateType}.csv`);
+      link.setAttribute('download', `modelo_convidados.csv`);
       document.body.appendChild(link);
       link.click();
       

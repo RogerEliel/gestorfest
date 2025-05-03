@@ -171,7 +171,7 @@ const UploadAreaCSV = ({
               ou clique para selecionar um arquivo
             </p>
             <p className="text-gray-400 text-xs max-w-md">
-              O arquivo deve estar no formato CSV com as colunas: nome, email, telefone (opcional)
+              O arquivo deve estar no formato CSV com as colunas: nome_convidado, telefone, observacao
             </p>
           </div>
         )}
