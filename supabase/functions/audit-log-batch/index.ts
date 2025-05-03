@@ -1,6 +1,7 @@
 
 import { createServer } from "http";
-import { createClient } from "@supabase/supabase-js";
+// Fix the non-relative import by using the npm: prefix
+import { createClient } from "npm:@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
