@@ -1,6 +1,6 @@
 
 import { useState, useRef } from "react";
-import { Upload, X, FileText, AlertCircle, Check } from "lucide-react";
+import { Upload, X, FileText, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -143,13 +143,6 @@ const UploadAreaXLSX = ({
                   <X className="h-4 w-4 mr-1" /> Remover arquivo
                 </Button>
               )}
-              <Button 
-                type="button" 
-                size="sm"
-                disabled={isLoading}
-              >
-                {isLoading ? "Processando..." : "Processar Excel"}
-              </Button>
             </div>
           </div>
         ) : error ? (
@@ -186,13 +179,6 @@ const UploadAreaXLSX = ({
           </div>
         )}
       </div>
-
-      {file && (
-        <div className="mt-4 text-sm text-gray-500 flex items-center">
-          <Check className="h-4 w-4 mr-1 text-green-500" />
-          Arquivo pronto para processamento
-        </div>
-      )}
     </div>
   );
 };

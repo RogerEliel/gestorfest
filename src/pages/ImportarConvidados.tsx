@@ -1,6 +1,6 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -10,19 +10,16 @@ import UploadAreaXLSX from "@/components/UploadAreaXLSX";
 import ExcelTemplateDownload from "@/components/CSVTemplateDownload";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhoneNumber, formatPhoneNumber } from "@/lib/validation";
-import * as XLSX from "xlsx";
-
-interface ConviteData {
-  nome_convidado: string;
-  telefone: string;
-  mensagem_personalizada?: string;
-}
+import { AuditAction, logUserAction } from "@/lib/auditLogger";
 
 interface ImportError {
   row: number;
-  field: string;
-  message: string;
+  error: string;
+}
+
+interface ImportResponse {
+  inserted_count: number;
+  failures: ImportError[];
 }
 
 const ImportarConvidados = () => {
@@ -33,8 +30,7 @@ const ImportarConvidados = () => {
   const [validating, setValidating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [convites, setConvites] = useState<ConviteData[]>([]);
-  const [errors, setErrors] = useState<ImportError[]>([]);
+  const [failures, setFailures] = useState<ImportError[]>([]);
   const [evento, setEvento] = useState<any>(null);
 
   useEffect(() => {
@@ -67,216 +63,76 @@ const ImportarConvidados = () => {
     }
   };
 
-  const parseExcel = useCallback(async (file: File) => {
-    return new Promise<{ data: ConviteData[], errors: ImportError[] }>((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        try {
-          const data: ConviteData[] = [];
-          const errors: ImportError[] = [];
-          
-          // Get ArrayBuffer from reader result
-          const arrayBuffer = e.target?.result;
-          if (!arrayBuffer) {
-            reject(new Error("Falha na leitura do arquivo"));
-            return;
-          }
-          
-          // Parse Excel file with ignoring formulas for security
-          const workbook = XLSX.read(arrayBuffer, { 
-            type: 'array', 
-            cellFormula: false, // Ignore formulas for security
-            cellDates: true,
-            cellNF: false
-          });
-          
-          // Validate workbook structure
-          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
-            reject(new Error("Arquivo Excel inválido ou corrompido"));
-            return;
-          }
-          
-          // Get first sheet
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          
-          if (!worksheet) {
-            reject(new Error("Planilha não encontrada no arquivo"));
-            return;
-          }
-          
-          // Convert to JSON with header row
-          const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { header: 1 });
-          
-          if (!Array.isArray(jsonData) || jsonData.length < 2) {
-            reject(new Error("Arquivo vazio ou sem dados"));
-            return;
-          }
-          
-          // Get headers (first row)
-          const headers = jsonData[0].map((h: any) => 
-            h ? String(h).trim().toLowerCase() : ''
-          ).filter(Boolean);
-          
-          // Validate required headers
-          const requiredHeaders = ['nome_convidado', 'telefone'];
-          const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-          
-          if (missingHeaders.length > 0) {
-            reject(new Error(`Colunas obrigatórias faltando: ${missingHeaders.join(', ')}`));
-            return;
-          }
-          
-          // Process rows (skip header)
-          for (let i = 1; i < jsonData.length; i++) {
-            const row = jsonData[i];
-            if (!row || row.length === 0) continue; // Skip empty rows
-            
-            const rowObj: Record<string, any> = {};
-            headers.forEach((header, index) => {
-              if (row[index] !== undefined) {
-                // Handle different data types
-                if (typeof row[index] === 'string') {
-                  rowObj[header] = row[index].trim();
-                } else if (row[index] instanceof Date) {
-                  rowObj[header] = row[index].toISOString();
-                } else {
-                  rowObj[header] = String(row[index]);
-                }
-              } else {
-                rowObj[header] = '';
-              }
-            });
-            
-            // Skip completely empty rows
-            const hasValues = Object.values(rowObj).some(v => v && String(v).trim());
-            if (!hasValues) continue;
-            
-            // Validate required fields
-            if (!rowObj.nome_convidado) {
-              errors.push({
-                row: i + 1, // Excel rows are 1-indexed
-                field: 'nome_convidado',
-                message: 'Nome do convidado é obrigatório'
-              });
-              continue; // Skip further processing for this row
-            }
-            
-            if (!rowObj.telefone) {
-              errors.push({
-                row: i + 1,
-                field: 'telefone',
-                message: 'Telefone é obrigatório'
-              });
-              continue; // Skip further processing for this row
-            }
-            
-            if (!isValidPhoneNumber(rowObj.telefone)) {
-              errors.push({
-                row: i + 1,
-                field: 'telefone',
-                message: 'Formato de telefone inválido. Use formato internacional: +5511999999999'
-              });
-              continue; // Skip further processing for this row
-            }
-            
-            // If row passed validation, add to data
-            const convite: ConviteData = {
-              nome_convidado: rowObj.nome_convidado,
-              telefone: formatPhoneNumber(rowObj.telefone)
-            };
-            
-            // Map observacao to mensagem_personalizada
-            if (rowObj.observacao) {
-              convite.mensagem_personalizada = rowObj.observacao;
-            }
-            
-            data.push(convite);
-          }
-          
-          resolve({ data, errors });
-        } catch (error) {
-          console.error("Error parsing Excel:", error);
-          reject(new Error("Erro ao processar o arquivo Excel. Verifique se o formato está correto."));
-        }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error("Erro ao ler o arquivo"));
-      };
-      
-      // Read as ArrayBuffer for better security and handling
-      reader.readAsArrayBuffer(file);
-    });
-  }, []);
-
   const handleFileSelected = async (selectedFile: File) => {
     setFile(selectedFile);
-    setValidating(true);
-    setErrors([]);
-    setConvites([]);
-    
-    try {
-      const { data, errors } = await parseExcel(selectedFile);
-      
-      setConvites(data);
-      setErrors(errors);
-      
-      if (errors.length > 0) {
-        toast({
-          title: "Validação",
-          description: `Encontrados ${errors.length} erros no arquivo.`,
-          variant: "destructive",
-        });
-      } else if (data.length > 0) {
-        toast({
-          title: "Validação",
-          description: `${data.length} convidados validados com sucesso.`,
-        });
-      } else {
-        toast({
-          title: "Atenção",
-          description: "Nenhum convidado válido encontrado no arquivo.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error processing Excel:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível ler o arquivo Excel. Verifique o formato.",
-        variant: "destructive",
-      });
-      setFile(null);
-    } finally {
-      setValidating(false);
-    }
+    setValidating(false);
+    setFailures([]);
   };
 
-  const handleImportConvites = async () => {
-    if (!eventoId || convites.length === 0) return;
+  const handleImportContacts = async () => {
+    if (!eventoId || !file) {
+      toast({
+        title: "Erro",
+        description: "Selecione um arquivo Excel para importar.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setImporting(true);
+      setFailures([]);
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', file);
       
       // Call the API to import contacts
       const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
         method: "POST",
-        body: { convites }
+        body: formData,
+        headers: {
+          // Do not set Content-Type, it will be set automatically with the correct boundary for FormData
+        }
       });
 
       if (error) throw error;
       
-      toast({
-        title: "Sucesso",
-        description: `${convites.length} convidados importados com sucesso.`,
-      });
+      const response = data as ImportResponse;
       
-      // Navigate back to the guest management page
-      navigate(`/eventos/${eventoId}/convidados`);
+      if (response.failures && response.failures.length > 0) {
+        setFailures(response.failures);
+        
+        toast({
+          title: "Importação parcial",
+          description: `${response.inserted_count} convidados importados com ${response.failures.length} falhas.`,
+          variant: "warning",
+        });
+      } else {
+        toast({
+          title: "Sucesso",
+          description: `${response.inserted_count} convidados importados com sucesso.`,
+        });
+        
+        // Navigate back to the guest management page after a successful import
+        setTimeout(() => {
+          navigate(`/eventos/${eventoId}/convidados`);
+        }, 2000);
+      }
+      
+      // Log the import action
+      logUserAction(
+        AuditAction.IMPORT_CONTACTS,
+        { 
+          totalImported: response.inserted_count,
+          totalFailures: response.failures?.length || 0
+        },
+        eventoId,
+        'evento'
+      );
+      
     } catch (error: any) {
-      console.error("Error importing guests:", error);
+      console.error("Error importing contacts:", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível importar os convidados.",
@@ -322,15 +178,15 @@ const ImportarConvidados = () => {
               accept=".xlsx"
             />
             
-            {errors.length > 0 && (
+            {failures.length > 0 && (
               <Alert variant="destructive" className="mt-6">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erros na validação do arquivo</AlertTitle>
+                <AlertTitle>Erros na importação</AlertTitle>
                 <AlertDescription>
                   <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
-                    {errors.map((error, index) => (
+                    {failures.map((error, index) => (
                       <div key={index} className="text-sm">
-                        Linha {error.row}: {error.message} (campo: {error.field})
+                        Linha {error.row}: {error.error}
                       </div>
                     ))}
                   </div>
@@ -338,17 +194,17 @@ const ImportarConvidados = () => {
               </Alert>
             )}
             
-            {convites.length > 0 && errors.length === 0 && (
+            {file && (
               <div className="mt-6 space-y-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <Check className="h-5 w-5" />
                   <span className="font-medium">
-                    {convites.length} convidados validados com sucesso
+                    Arquivo selecionado: {file.name}
                   </span>
                 </div>
                 <Button 
-                  onClick={handleImportConvites}
-                  disabled={importing}
+                  onClick={handleImportContacts}
+                  disabled={importing || !file}
                   className="w-full md:w-auto"
                 >
                   {importing ? (
@@ -359,7 +215,7 @@ const ImportarConvidados = () => {
                   ) : (
                     <span className="flex items-center">
                       <Upload className="h-4 w-4 mr-2" />
-                      Importar {convites.length} Convidados
+                      Importar Convidados
                     </span>
                   )}
                 </Button>
