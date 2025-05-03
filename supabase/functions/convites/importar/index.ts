@@ -2,7 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../../eventos/utils.ts";
 import * as XLSX from "npm:xlsx@0.18.5";
-import { Buffer } from "https://deno.land/std@0.208.0/node/buffer.ts";
+import { Buffer } from "https://deno.land/std@0.177.0/node/buffer.ts";
 
 // Function to validate a phone number
 function isValidPhoneNumber(phone: string): boolean {
