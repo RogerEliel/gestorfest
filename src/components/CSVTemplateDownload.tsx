@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Check } from "lucide-react";
+import { Check, Download } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface CSVTemplateDownloadProps {
