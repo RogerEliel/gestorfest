@@ -93,16 +93,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Insert convites
-    const convitesWithEventId = convites.map(convite => ({
-      ...convite,
-      evento_id: eventoId,
-      status: "pendente"
-    }));
+    // Validate each convite data
+    const validatedConvites = convites.map(convite => {
+      // Sanitize inputs
+      const nome_convidado = convite.nome_convidado ? 
+        String(convite.nome_convidado).trim().slice(0, 255) : null;
+      
+      const telefone = convite.telefone ? 
+        String(convite.telefone).trim().replace(/[^\d+]/g, '').slice(0, 20) : null;
+      
+      const mensagem_personalizada = convite.mensagem_personalizada ? 
+        String(convite.mensagem_personalizada).trim().slice(0, 500) : null;
+      
+      // Basic validation
+      if (!nome_convidado) {
+        throw new Error("Nome do convidado é obrigatório");
+      }
+      
+      if (!telefone) {
+        throw new Error("Telefone do convidado é obrigatório");
+      }
+      
+      return {
+        nome_convidado,
+        telefone,
+        mensagem_personalizada,
+        evento_id: eventoId,
+        status: "pendente"
+      };
+    });
 
+    // Insert convites
     const { data: insertedConvites, error: insertError } = await supabase
       .from("convites")
-      .insert(convitesWithEventId)
+      .insert(validatedConvites)
       .select();
 
     if (insertError) {

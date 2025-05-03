@@ -33,7 +33,7 @@ const UploadAreaXLSX = ({
 
   const validateFile = (file: File) => {
     // Check if file is an Excel file
-    if (!file.name.endsWith('.xlsx')) {
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
       setError("O arquivo deve estar no formato Excel (.xlsx).");
       return false;
     }
@@ -41,6 +41,16 @@ const UploadAreaXLSX = ({
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("O arquivo não pode ser maior que 5MB.");
+      return false;
+    }
+    
+    // Additional mime type check
+    const validMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (!validMimeTypes.includes(file.type)) {
+      setError("O tipo de arquivo não é válido. Use apenas arquivos Excel (.xlsx).");
       return false;
     }
     

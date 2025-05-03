@@ -76,23 +76,48 @@ const ImportarConvidados = () => {
           const data: ConviteData[] = [];
           const errors: ImportError[] = [];
           
-          const binaryString = e.target?.result;
-          const workbook = XLSX.read(binaryString, { type: 'binary' });
+          // Get ArrayBuffer from reader result
+          const arrayBuffer = e.target?.result;
+          if (!arrayBuffer) {
+            reject(new Error("Falha na leitura do arquivo"));
+            return;
+          }
+          
+          // Parse Excel file with ignoring formulas for security
+          const workbook = XLSX.read(arrayBuffer, { 
+            type: 'array', 
+            cellFormula: false, // Ignore formulas for security
+            cellDates: true,
+            cellNF: false
+          });
+          
+          // Validate workbook structure
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+            reject(new Error("Arquivo Excel inválido ou corrompido"));
+            return;
+          }
           
           // Get first sheet
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           
-          // Convert to JSON
+          if (!worksheet) {
+            reject(new Error("Planilha não encontrada no arquivo"));
+            return;
+          }
+          
+          // Convert to JSON with header row
           const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { header: 1 });
           
-          if (jsonData.length < 2) {
+          if (!Array.isArray(jsonData) || jsonData.length < 2) {
             reject(new Error("Arquivo vazio ou sem dados"));
             return;
           }
           
           // Get headers (first row)
-          const headers = jsonData[0].map((h: any) => String(h).trim().toLowerCase());
+          const headers = jsonData[0].map((h: any) => 
+            h ? String(h).trim().toLowerCase() : ''
+          ).filter(Boolean);
           
           // Validate required headers
           const requiredHeaders = ['nome_convidado', 'telefone'];
@@ -110,8 +135,23 @@ const ImportarConvidados = () => {
             
             const rowObj: Record<string, any> = {};
             headers.forEach((header, index) => {
-              rowObj[header] = row[index] !== undefined ? String(row[index]).trim() : '';
+              if (row[index] !== undefined) {
+                // Handle different data types
+                if (typeof row[index] === 'string') {
+                  rowObj[header] = row[index].trim();
+                } else if (row[index] instanceof Date) {
+                  rowObj[header] = row[index].toISOString();
+                } else {
+                  rowObj[header] = String(row[index]);
+                }
+              } else {
+                rowObj[header] = '';
+              }
             });
+            
+            // Skip completely empty rows
+            const hasValues = Object.values(rowObj).some(v => v && String(v).trim());
+            if (!hasValues) continue;
             
             // Validate required fields
             if (!rowObj.nome_convidado) {
@@ -120,6 +160,7 @@ const ImportarConvidados = () => {
                 field: 'nome_convidado',
                 message: 'Nome do convidado é obrigatório'
               });
+              continue; // Skip further processing for this row
             }
             
             if (!rowObj.telefone) {
@@ -128,34 +169,36 @@ const ImportarConvidados = () => {
                 field: 'telefone',
                 message: 'Telefone é obrigatório'
               });
-            } else if (!isValidPhoneNumber(rowObj.telefone)) {
+              continue; // Skip further processing for this row
+            }
+            
+            if (!isValidPhoneNumber(rowObj.telefone)) {
               errors.push({
                 row: i + 1,
                 field: 'telefone',
                 message: 'Formato de telefone inválido. Use formato internacional: +5511999999999'
               });
+              continue; // Skip further processing for this row
             }
             
-            // If no errors for this row, add to data
-            if (!errors.some(e => e.row === i + 1)) {
-              const convite: ConviteData = {
-                nome_convidado: rowObj.nome_convidado,
-                telefone: formatPhoneNumber(rowObj.telefone)
-              };
-              
-              // Map observacao to mensagem_personalizada
-              if (rowObj.observacao) {
-                convite.mensagem_personalizada = rowObj.observacao;
-              }
-              
-              data.push(convite);
+            // If row passed validation, add to data
+            const convite: ConviteData = {
+              nome_convidado: rowObj.nome_convidado,
+              telefone: formatPhoneNumber(rowObj.telefone)
+            };
+            
+            // Map observacao to mensagem_personalizada
+            if (rowObj.observacao) {
+              convite.mensagem_personalizada = rowObj.observacao;
             }
+            
+            data.push(convite);
           }
           
           resolve({ data, errors });
         } catch (error) {
           console.error("Error parsing Excel:", error);
-          reject(new Error("Erro ao processar o arquivo Excel"));
+          reject(new Error("Erro ao processar o arquivo Excel. Verifique se o formato está correto."));
         }
       };
       
@@ -163,7 +206,8 @@ const ImportarConvidados = () => {
         reject(new Error("Erro ao ler o arquivo"));
       };
       
-      reader.readAsBinaryString(file);
+      // Read as ArrayBuffer for better security and handling
+      reader.readAsArrayBuffer(file);
     });
   }, []);
 
@@ -185,10 +229,16 @@ const ImportarConvidados = () => {
           description: `Encontrados ${errors.length} erros no arquivo.`,
           variant: "destructive",
         });
-      } else {
+      } else if (data.length > 0) {
         toast({
           title: "Validação",
           description: `${data.length} convidados validados com sucesso.`,
+        });
+      } else {
+        toast({
+          title: "Atenção",
+          description: "Nenhum convidado válido encontrado no arquivo.",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
@@ -198,6 +248,7 @@ const ImportarConvidados = () => {
         description: error.message || "Não foi possível ler o arquivo Excel. Verifique o formato.",
         variant: "destructive",
       });
+      setFile(null);
     } finally {
       setValidating(false);
     }

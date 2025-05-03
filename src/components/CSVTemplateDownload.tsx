@@ -14,7 +14,7 @@ const ExcelTemplateDownload = ({ className }: ExcelTemplateDownloadProps) => {
   const { toast } = useToast();
 
   const generateExcel = (): Uint8Array => {
-    // Create data structure
+    // Create data structure with clear headers and example data
     const data = [
       ["nome_convidado", "telefone", "observacao"], // Header row
       ["João da Silva", "+5511998765432", "Parente próximo"],
