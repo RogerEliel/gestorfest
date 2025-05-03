@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../../eventos/utils.ts";
 import * as XLSX from "npm:xlsx@0.18.5";
+import { Buffer } from "https://deno.land/std@0.201.0/node/buffer.ts";
 
 // Function to validate a phone number
 function isValidPhoneNumber(phone: string): boolean {
@@ -45,7 +46,12 @@ function formatPhoneNumber(phone: string): string {
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+      } 
+    });
   }
 
   try {

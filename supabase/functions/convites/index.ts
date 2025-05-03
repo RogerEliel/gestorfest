@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
 };
 
 interface ConviteRequest {
@@ -403,7 +404,7 @@ async function obterDetalhesConvite(supabase: any, conviteId: string, usuario_id
   );
 }
 
-// Novo: Handler para reenviar convite
+// Handler para reenviar convite
 async function reenviarConvite(supabase: any, eventId: string, conviteId: string, usuario_id: string) {
   const verificacao = await verificarAcessoAoConvite(supabase, conviteId, usuario_id);
   
@@ -458,7 +459,7 @@ async function reenviarConvite(supabase: any, eventId: string, conviteId: string
   );
 }
 
-// Novo: Handler para obter estatísticas do dashboard
+// Handler para obter estatísticas do dashboard
 async function obterDashboardEvento(supabase: any, eventId: string, usuario_id: string) {
   const verificacao = await verificarAcessoAoEvento(supabase, eventId, usuario_id);
   
@@ -574,104 +575,112 @@ serve(async (req) => {
   try {
     const supabase = createSupabaseClient();
 
-    // Verificar autenticação (exceto para resposta pública de convidado)
+    // Parse the URL and extract path segments
     const url = new URL(req.url);
     const pathSegments = url.pathname.split('/').filter(segment => segment);
+    
+    // Check if this is a public response endpoint
     const isPublicResponse = pathSegments.includes('resposta-publica');
     
+    // Authenticate user based on endpoint type
     const authResult = await autenticarUsuario(req, isPublicResponse);
     
-    if (!authResult.autenticado) {
+    // For non-public endpoints, require authentication
+    if (!isPublicResponse && !authResult.autenticado) {
       return new Response(
         JSON.stringify({ error: authResult.error }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
     
-    const usuario_id = authResult.usuario_id;
+    // For authenticated routes, ensure usuario_id is available and non-null
+    const usuario_id = isPublicResponse ? null : authResult.usuario_id!;
     
-    // Listar convites por evento (event_id from URL)
-    if (pathSegments.includes('eventos') && req.method === "GET") {
-      const eventId = pathSegments[pathSegments.indexOf('eventos') + 1];
-      
-      // Verificar se é uma solicitação de dashboard
-      if (pathSegments.includes('dashboard')) {
-        return await obterDashboardEvento(supabase, eventId, usuario_id!);
+    // Improved routing with clear path segment extraction
+    // Attempt to extract common path patterns
+    if (pathSegments.length >= 1) {
+      // GET /convites/:id - Get invitation details
+      if (pathSegments.length === 1 && req.method === "GET" && !isPublicResponse) {
+        const conviteId = pathSegments[0];
+        return await obterDetalhesConvite(supabase, conviteId, usuario_id!);
       }
       
-      return await listarConvitesPorEvento(supabase, eventId, usuario_id!);
-    }
-    
-    // Criar convites em lote para um evento
-    if (pathSegments.includes('eventos') && pathSegments.includes('criar-lote') && req.method === "POST") {
-      const eventId = pathSegments[pathSegments.indexOf('eventos') + 1];
-      const convitesData = await req.json() as ConviteRequest[];
-      return await criarConvitesEmLote(supabase, eventId, usuario_id!, convitesData);
-    }
-    
-    // Atualizar status de um convite específico (interno, por admin)
-    if (pathSegments.includes('status') && req.method === "PUT") {
-      const conviteId = pathSegments[0];
-      const updateData = await req.json() as ConviteUpdateRequest;
-      return await atualizarStatusConvite(supabase, conviteId, usuario_id!, updateData);
-    }
-    
-    // Resposta pública para convidados (via link)
-    if (pathSegments.includes('resposta-publica') && req.method === "POST") {
-      const slug = pathSegments[pathSegments.indexOf('resposta-publica') + 1];
-      const conviteId = pathSegments[pathSegments.indexOf('resposta-publica') + 2];
-      const updateData = await req.json() as ConviteUpdateRequest;
-      return await processarRespostaPublica(supabase, slug, conviteId, updateData);
-    }
-    
-    // Novo: Reenvio de convite
-    if (pathSegments.includes('eventos') && pathSegments.includes('convites') && 
-        pathSegments.includes('reenviar') && req.method === "POST") {
-      const eventId = pathSegments[pathSegments.indexOf('eventos') + 1];
-      const conviteId = pathSegments[pathSegments.indexOf('convites') + 1];
-      return await reenviarConvite(supabase, eventId, conviteId, usuario_id!);
-    }
-    
-    // Novo: Atualizar resposta de um convite (RSVP)
-    if (pathSegments.includes('eventos') && pathSegments.includes('convites') && 
-        pathSegments.includes('resposta') && req.method === "POST") {
-      const conviteId = pathSegments[pathSegments.indexOf('convites') + 1];
-      const updateData = await req.json() as ConviteUpdateRequest;
-      
-      // Verificar se o status já é o mesmo
-      const { data: conviteAtual } = await supabase
-        .from('convites')
-        .select('status')
-        .eq('id', conviteId)
-        .single();
-      
-      if (conviteAtual && conviteAtual.status === updateData.status) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'O convite já está com esse status',
-            status_atual: conviteAtual.status
-          }),
-          { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
+      // Route: /eventos/:eventId/convites
+      if (pathSegments[0] === 'eventos' && pathSegments.length >= 2) {
+        const eventId = pathSegments[1];
+        
+        // GET /eventos/:eventId/dashboard - Get dashboard stats
+        if (pathSegments.length === 3 && pathSegments[2] === 'dashboard' && req.method === "GET") {
+          return await obterDashboardEvento(supabase, eventId, usuario_id!);
+        }
+        
+        // GET /eventos/:eventId/convites - List all invitations for an event
+        if ((pathSegments.length === 3 && pathSegments[2] === 'convites' && req.method === "GET") ||
+            (pathSegments.length === 2 && req.method === "GET")) {
+          return await listarConvitesPorEvento(supabase, eventId, usuario_id!);
+        }
+        
+        // POST /eventos/:eventId/criar-lote - Create batch invitations
+        if (pathSegments.length === 3 && pathSegments[2] === 'criar-lote' && req.method === "POST") {
+          const convitesData = await req.json() as ConviteRequest[];
+          return await criarConvitesEmLote(supabase, eventId, usuario_id!, convitesData);
+        }
+        
+        // POST /eventos/:eventId/convites/:conviteId/reenviar - Resend invitation
+        if (pathSegments.length === 5 && pathSegments[2] === 'convites' && pathSegments[4] === 'reenviar' && req.method === "POST") {
+          const conviteId = pathSegments[3];
+          return await reenviarConvite(supabase, eventId, conviteId, usuario_id!);
+        }
+        
+        // POST /eventos/:eventId/convites/:conviteId/resposta - Update invitation response (RSVP)
+        if (pathSegments.length === 5 && pathSegments[2] === 'convites' && pathSegments[4] === 'resposta' && req.method === "POST") {
+          const conviteId = pathSegments[3];
+          const updateData = await req.json() as ConviteUpdateRequest;
+          
+          // Check if status is already the same
+          const { data: conviteAtual } = await supabase
+            .from('convites')
+            .select('status')
+            .eq('id', conviteId)
+            .single();
+          
+          if (conviteAtual && conviteAtual.status === updateData.status) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'O convite já está com esse status',
+                status_atual: conviteAtual.status
+              }),
+              { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
+            );
+          }
+          
+          return await atualizarStatusConvite(supabase, conviteId, usuario_id!, updateData);
+        }
       }
       
-      return await atualizarStatusConvite(supabase, conviteId, usuario_id!, updateData);
-    }
-    
-    // Obter URL amigável do convite
-    if (pathSegments.includes('url') && req.method === "GET") {
-      const conviteId = pathSegments[pathSegments.indexOf('url') + 1];
-      return await obterUrlConvite(supabase, conviteId, usuario_id!);
-    }
-    
-    // Obter detalhes de um convite específico
-    if (!pathSegments.includes('eventos') && !pathSegments.includes('status') && 
-        !pathSegments.includes('resposta-publica') && !pathSegments.includes('url') && 
-        req.method === "GET") {
-      const conviteId = pathSegments[0];
-      return await obterDetalhesConvite(supabase, conviteId, usuario_id!);
+      // PUT /:conviteId/status - Update invitation status (admin)
+      if (pathSegments.length === 2 && pathSegments[1] === 'status' && req.method === "PUT" && !isPublicResponse) {
+        const conviteId = pathSegments[0];
+        const updateData = await req.json() as ConviteUpdateRequest;
+        return await atualizarStatusConvite(supabase, conviteId, usuario_id!, updateData);
+      }
+      
+      // GET /:conviteId/url - Get friendly URL for invitation
+      if (pathSegments.length === 2 && pathSegments[1] === 'url' && req.method === "GET" && !isPublicResponse) {
+        const conviteId = pathSegments[0];
+        return await obterUrlConvite(supabase, conviteId, usuario_id!);
+      }
+      
+      // POST /resposta-publica/:slug/:conviteId - Process public response
+      if (pathSegments[0] === 'resposta-publica' && pathSegments.length === 3 && req.method === "POST") {
+        const slug = pathSegments[1];
+        const conviteId = pathSegments[2];
+        const updateData = await req.json() as ConviteUpdateRequest;
+        return await processarRespostaPublica(supabase, slug, conviteId, updateData);
+      }
     }
 
+    // If no route matched, return 404
     return new Response(
       JSON.stringify({ error: "Endpoint não encontrado" }),
       { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -679,15 +688,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
-
-/*
- * Próximo passo - Passo 5: Testes End-to-End & Otimizações
- * Implementação de testes end-to-end do fluxo completo:
- * signup → evento → import → RSVP → dashboard
- * Otimizações de UX e performance
- */
