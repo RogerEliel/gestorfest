@@ -106,7 +106,7 @@ const ImportarConvidados = () => {
         toast({
           title: "Importação parcial",
           description: `${response.inserted_count} convidados importados com ${response.failures.length} falhas.`,
-          variant: "warning",
+          variant: "destructive",
         });
       } else {
         toast({
