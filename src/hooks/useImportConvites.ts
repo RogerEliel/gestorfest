@@ -5,7 +5,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AuditAction, logUserAction } from "@/lib/auditLogger";
 import { isValidPhoneNumber } from "@/lib/validation";
-import * as XLSX from 'xlsx';
 
 interface ImportError {
   row: number;
@@ -35,11 +34,15 @@ export const useImportConvites = (eventoId: string | undefined) => {
   const [failures, setFailures] = useState<ImportError[]>([]);
   const [previewData, setPreviewData] = useState<ImportPreviewItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [rawData, setRawData] = useState<any[]>([]);
 
-  const handleFileSelected = async (selectedFile: File | null) => {
-    console.log("Selected file:", selectedFile);
+  const handleFileSelected = async (selectedFile: File | null, data?: any[]) => {
+    console.log("Selected file:", selectedFile, "with data:", data);
     if (selectedFile) {
       setFile(selectedFile);
+      if (data && Array.isArray(data)) {
+        setRawData(data);
+      }
       setValidating(false);
       setFailures([]);
       setPreviewData([]);
@@ -49,6 +52,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
 
   const removeFile = () => {
     setFile(null);
+    setRawData([]);
     setFailures([]);
     setPreviewData([]);
     setShowPreview(false);
@@ -68,10 +72,16 @@ export const useImportConvites = (eventoId: string | undefined) => {
       setValidating(true);
       setPreviewData([]);
       
-      // Parse Excel file
-      const data = await parseExcelFile(file);
-      console.log("Parsed data for validation:", data);
-      setPreviewData(data);
+      // Use the already parsed data if available, otherwise parse it again
+      let data = rawData;
+      if (!data || data.length === 0) {
+        data = await parseExcelFile(file);
+      }
+      console.log("Data for validation:", data);
+      
+      // Validate and format the data
+      const validated = validateExcelData(data);
+      setPreviewData(validated);
       setShowPreview(true);
     } catch (error: any) {
       console.error("Error validating file:", error);
@@ -85,7 +95,41 @@ export const useImportConvites = (eventoId: string | undefined) => {
     }
   };
   
-  const parseExcelFile = async (file: File): Promise<ImportPreviewItem[]> => {
+  const validateExcelData = (jsonData: any[]): ImportPreviewItem[] => {
+    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+      throw new Error("Formato de arquivo inválido ou vazio");
+    }
+    
+    const previewItems: ImportPreviewItem[] = [];
+    
+    jsonData.forEach((row: any) => {
+      const item: ImportPreviewItem = {
+        nome_convidado: String(row.nome_convidado || ""),
+        telefone: String(row.telefone || "").replace(/\D/g, ''),
+        mensagem_personalizada: row.observacao ? String(row.observacao) : null,
+        isValid: true
+      };
+      
+      // Validate required fields
+      if (!item.nome_convidado) {
+        item.isValid = false;
+        item.error = "Nome do convidado é obrigatório";
+      } else if (!item.telefone) {
+        item.isValid = false;
+        item.error = "Telefone é obrigatório";
+      } else if (!isValidPhoneNumber(item.telefone)) {
+        item.isValid = false;
+        item.error = "Número de telefone inválido";
+      }
+      
+      previewItems.push(item);
+    });
+    
+    return previewItems;
+  };
+  
+  const parseExcelFile = async (file: File): Promise<any[]> => {
+    // This function is now a fallback if data wasn't already parsed by the ImportXLSX component
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -97,6 +141,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
           }
           
           const data = new Uint8Array(e.target.result as ArrayBuffer);
+          const XLSX = require('xlsx');
           const workbook = XLSX.read(data, { type: 'array' });
           
           // Get first sheet
@@ -112,33 +157,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
             return;
           }
           
-          // Validate and format data
-          const previewItems: ImportPreviewItem[] = [];
-          
-          jsonData.forEach((row: any, index: number) => {
-            const item: ImportPreviewItem = {
-              nome_convidado: String(row.nome_convidado || ""),
-              telefone: String(row.telefone || "").replace(/\D/g, ''),
-              mensagem_personalizada: row.observacao ? String(row.observacao) : null,
-              isValid: true
-            };
-            
-            // Validate required fields
-            if (!item.nome_convidado) {
-              item.isValid = false;
-              item.error = "Nome do convidado é obrigatório";
-            } else if (!item.telefone) {
-              item.isValid = false;
-              item.error = "Telefone é obrigatório";
-            } else if (!isValidPhoneNumber(item.telefone)) {
-              item.isValid = false;
-              item.error = "Número de telefone inválido";
-            }
-            
-            previewItems.push(item);
-          });
-          
-          resolve(previewItems);
+          resolve(jsonData);
         } catch (error) {
           console.error("Error parsing Excel file:", error);
           reject(new Error("Erro ao processar o arquivo Excel"));
@@ -190,12 +209,19 @@ export const useImportConvites = (eventoId: string | undefined) => {
       formData.append('file', file);
       
       // Get auth token to ensure it's included in the request
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error("Erro ao obter sessão: " + sessionError.message);
+      }
+      
+      const token = sessionData?.session?.access_token;
       
       if (!token) {
         throw new Error("Usuário não autenticado. Faça login novamente.");
       }
+      
+      console.log("Auth token available:", !!token);
       
       // Call the API to import contacts using the dedicated import endpoint with explicit auth header
       const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
@@ -207,9 +233,11 @@ export const useImportConvites = (eventoId: string | undefined) => {
       });
 
       if (error) {
-        console.error("Import error:", error);
-        throw error;
+        console.error("Import function error:", error);
+        throw new Error(error.message || "Erro ao importar contatos");
       }
+      
+      console.log("Import response:", data);
       
       const response = data as ImportResponse;
       

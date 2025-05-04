@@ -34,10 +34,17 @@ export function useImportHistory(eventoId: string | undefined) {
       setLoading(true);
       
       // Garantir que temos o token de autenticação
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error("Erro ao obter sessão: " + sessionError.message);
+      }
+      
       if (!sessionData.session) {
         throw new Error("Usuário não autenticado");
       }
+      
+      console.log("Auth token available for history:", !!sessionData.session.access_token);
 
       const { data, error } = await supabase
         .from('auditoria_importacoes')
@@ -64,12 +71,19 @@ export function useImportHistory(eventoId: string | undefined) {
                 error: typeof item.error === 'string' ? item.error : String(item.error || '')
               }));
             } 
+            // If it's an object but not an array, try to convert it
+            else if (typeof record.detalhes_falhas === 'object') {
+              processedDetailsFalhas = Object.values(record.detalhes_falhas).map((item: any) => ({
+                row: typeof item.row === 'number' ? item.row : 0,
+                error: typeof item.error === 'string' ? item.error : String(item.error || '')
+              }));
+            }
             // Otherwise set to null
             else {
               processedDetailsFalhas = null;
             }
           } catch (e) {
-            console.error("Error parsing detalhes_falhas:", e);
+            console.error("Error parsing detalhes_falhas:", e, record.detalhes_falhas);
             processedDetailsFalhas = null;
           }
         }
@@ -80,8 +94,9 @@ export function useImportHistory(eventoId: string | undefined) {
         };
       });
 
+      console.log("Import history processed:", processedData);
       setHistory(processedData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching import history:', error);
       setHistory([]);
     } finally {

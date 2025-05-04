@@ -35,6 +35,10 @@ path = "/convites/*"
 function = "convites"
 
 [[edge_functions.routes]]
+path = "/convites/importar/*"
+function = "convites"
+
+[[edge_functions.routes]]
 path = "/audit-log"
 function = "audit-log"
 
