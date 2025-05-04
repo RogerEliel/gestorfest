@@ -34,7 +34,12 @@ const ImportarConvidados = () => {
         />
 
         {/* ⚠️ ImportXLSX usa a prop `onData` (não `onUpload`) */}
-        <ImportXLSX onData={handleFileSelected} />
+        <ImportXLSX onUpload={(rows) => {
+          const file = rows[0]; // Assuming rows[0] contains the file
+          if (file instanceof File) {
+            handleFileSelected(file);
+          }
+        }} />
 
         <ImportCard
           file={file}
