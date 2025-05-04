@@ -43,6 +43,28 @@ export const useDashboardEventos = () => {
 
   useEffect(() => {
     fetchEventos();
+    
+    // Set up realtime subscription for eventos table
+    const channel = supabase
+      .channel('public:eventos')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'eventos' 
+        },
+        (payload) => {
+          console.log('Realtime change received:', payload);
+          fetchEventos();
+        }
+      )
+      .subscribe();
+      
+    // Clean up subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { eventos, loading, fetchEventos };

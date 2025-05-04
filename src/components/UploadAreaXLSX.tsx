@@ -1,22 +1,22 @@
 
 import { useState, useRef } from "react";
-import { Upload, X, FileText, AlertCircle, Check } from "lucide-react";
+import { Upload, X, FileText, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface UploadAreaCSVProps {
+interface UploadAreaXLSXProps {
   onFileSelected: (file: File) => void;
   isLoading?: boolean;
   className?: string;
   accept?: string;
 }
 
-const UploadAreaCSV = ({
+const UploadAreaXLSX = ({
   onFileSelected,
   isLoading = false,
   className,
-  accept = ".csv"
-}: UploadAreaCSVProps) => {
+  accept = ".xlsx"
+}: UploadAreaXLSXProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,15 +32,25 @@ const UploadAreaCSV = ({
   };
 
   const validateFile = (file: File) => {
-    // Check if file is a CSV
-    if (!file.name.endsWith('.csv')) {
-      setError("O arquivo deve estar no formato CSV.");
+    // Check if file is an Excel file
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      setError("O arquivo deve estar no formato Excel (.xlsx).");
       return false;
     }
     
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("O arquivo não pode ser maior que 5MB.");
+      return false;
+    }
+    
+    // Additional mime type check
+    const validMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    
+    if (!validMimeTypes.includes(file.type)) {
+      setError("O tipo de arquivo não é válido. Use apenas arquivos Excel (.xlsx).");
       return false;
     }
     
@@ -133,13 +143,6 @@ const UploadAreaCSV = ({
                   <X className="h-4 w-4 mr-1" /> Remover arquivo
                 </Button>
               )}
-              <Button 
-                type="button" 
-                size="sm"
-                disabled={isLoading}
-              >
-                {isLoading ? "Processando..." : "Processar CSV"}
-              </Button>
             </div>
           </div>
         ) : error ? (
@@ -166,25 +169,18 @@ const UploadAreaCSV = ({
             <div className="bg-primary-lighter/10 p-3 rounded-full mb-4">
               <Upload className="h-8 w-8 text-primary-lighter" />
             </div>
-            <p className="font-medium text-lg mb-1">Arraste e solte seu arquivo CSV aqui</p>
+            <p className="font-medium text-lg mb-1">Arraste e solte seu arquivo Excel aqui</p>
             <p className="text-gray-500 text-sm mb-4">
               ou clique para selecionar um arquivo
             </p>
             <p className="text-gray-400 text-xs max-w-md">
-              O arquivo deve estar no formato CSV com as colunas: nome_convidado, telefone, observacao
+              O arquivo deve estar no formato Excel (.xlsx) com as colunas: nome_convidado, telefone, observacao
             </p>
           </div>
         )}
       </div>
-
-      {file && (
-        <div className="mt-4 text-sm text-gray-500 flex items-center">
-          <Check className="h-4 w-4 mr-1 text-green-500" />
-          Arquivo pronto para processamento
-        </div>
-      )}
     </div>
   );
 };
 
-export default UploadAreaCSV;
+export default UploadAreaXLSX;

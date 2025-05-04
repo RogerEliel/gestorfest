@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      auditoria_importacoes: {
+        Row: {
+          created_at: string
+          data_importacao: string
+          detalhes_falhas: Json | null
+          evento_id: string
+          id: string
+          registros_falha: number
+          registros_importados: number
+          total_registros: number
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_importacao?: string
+          detalhes_falhas?: Json | null
+          evento_id: string
+          id?: string
+          registros_falha: number
+          registros_importados: number
+          total_registros: number
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          data_importacao?: string
+          detalhes_falhas?: Json | null
+          evento_id?: string
+          id?: string
+          registros_falha?: number
+          registros_importados?: number
+          total_registros?: number
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_importacoes_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       convites: {
         Row: {
           created_at: string
