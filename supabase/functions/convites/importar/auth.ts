@@ -15,6 +15,7 @@ export async function authenticateAndVerifyEventOwnership(req: Request, eventoId
   // Authenticate user
   const authHeader = req.headers.get("authorization");
   if (!authHeader) {
+    console.error("Authorization header missing");
     return {
       success: false,
       response: new Response(
@@ -26,20 +27,25 @@ export async function authenticateAndVerifyEventOwnership(req: Request, eventoId
     };
   }
 
+  console.log("Auth header present:", authHeader.substring(0, 15) + "...");
+  
   const jwt = authHeader.replace("Bearer ", "");
   const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
 
   if (authError || !user) {
+    console.error("Auth error or no user:", authError);
     return {
       success: false,
       response: new Response(
-        JSON.stringify({ error: "Usuário não autenticado" }),
+        JSON.stringify({ error: "Usuário não autenticado", details: authError?.message }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       ),
       supabase: null,
       profile: null
     };
   }
+
+  console.log("User authenticated:", user.id);
 
   // Validate event ownership
   const { data: evento, error: eventoError } = await supabase
@@ -49,6 +55,7 @@ export async function authenticateAndVerifyEventOwnership(req: Request, eventoId
     .single();
 
   if (eventoError || !evento) {
+    console.error("Event not found:", eventoError);
     return {
       success: false,
       response: new Response(
@@ -68,6 +75,7 @@ export async function authenticateAndVerifyEventOwnership(req: Request, eventoId
     .single();
 
   if (profileError || !profile) {
+    console.error("Profile not found:", profileError);
     return {
       success: false,
       response: new Response(
@@ -78,6 +86,8 @@ export async function authenticateAndVerifyEventOwnership(req: Request, eventoId
       profile: null
     };
   }
+
+  console.log("User profile:", profile.usuario_id, "Event owner:", evento.usuario_id);
 
   if (evento.usuario_id !== profile.usuario_id) {
     return {

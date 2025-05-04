@@ -12,13 +12,16 @@ Deno.serve(async (req) => {
     return new Response(null, { 
       headers: {
         ...corsHeaders,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
       } 
     });
   }
 
   try {
     console.log("Import handler started");
+    console.log("Request method:", req.method);
+    console.log("Request headers:", [...req.headers.entries()].map(([k, v]) => `${k}: ${v.substring(0, 15)}...`).join(', '));
     
     // Parse request details
     const url = new URL(req.url);
@@ -53,38 +56,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Read the form data
-    const formData = await req.formData();
-    const file = formData.get("file");
+    try {
+      // Read the form data
+      const formData = await req.formData();
+      const file = formData.get("file");
 
-    console.log("File received:", file ? "yes" : "no");
+      console.log("Form data received, file present:", file ? "yes" : "no");
+      console.log("File type:", file ? (file instanceof File ? "File object" : typeof file) : "N/A");
 
-    if (!file || !(file instanceof File)) {
+      if (!file || !(file instanceof File)) {
+        return new Response(
+          JSON.stringify({ error: "Arquivo não encontrado ou inválido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("File name:", file.name, "File size:", file.size);
+
+      // Parse and validate the Excel file
+      const parseResult = await parseExcelFile(file);
+      if (!parseResult.success) {
+        return parseResult.response!;
+      }
+
+      const { toInsert, failures } = parseResult;
+
+      console.log("Parse result - records to insert:", toInsert?.length, "failures:", failures?.length);
+
+      // Insert data into the database
+      const insertResult = await insertGuestData(
+        supabase, 
+        eventoId, 
+        profile!.usuario_id, 
+        toInsert!, 
+        failures!
+      );
+      
+      return insertResult.response!;
+    } catch (formError) {
+      console.error("Error processing form data:", formError);
       return new Response(
-        JSON.stringify({ error: "Arquivo não encontrado ou inválido" }),
+        JSON.stringify({ error: "Erro ao processar dados do formulário", details: formError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Parse and validate the Excel file
-    const parseResult = await parseExcelFile(file);
-    if (!parseResult.success) {
-      return parseResult.response!;
-    }
-
-    const { toInsert, failures } = parseResult;
-
-    // Insert data into the database
-    const insertResult = await insertGuestData(
-      supabase, 
-      eventoId, 
-      profile!.usuario_id, 
-      toInsert!, 
-      failures!
-    );
-    
-    return insertResult.response!;
-
   } catch (error) {
     console.error("Error processing import:", error);
     return new Response(

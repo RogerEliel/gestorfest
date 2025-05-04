@@ -36,12 +36,15 @@ export const useImportConvites = (eventoId: string | undefined) => {
   const [previewData, setPreviewData] = useState<ImportPreviewItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
 
-  const handleFileSelected = async (selectedFile: File) => {
-    setFile(selectedFile);
-    setValidating(false);
-    setFailures([]);
-    setPreviewData([]);
-    setShowPreview(false);
+  const handleFileSelected = async (selectedFile: File | null) => {
+    console.log("Selected file:", selectedFile);
+    if (selectedFile) {
+      setFile(selectedFile);
+      setValidating(false);
+      setFailures([]);
+      setPreviewData([]);
+      setShowPreview(false);
+    }
   };
 
   const removeFile = () => {
@@ -67,6 +70,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
       
       // Parse Excel file
       const data = await parseExcelFile(file);
+      console.log("Parsed data for validation:", data);
       setPreviewData(data);
       setShowPreview(true);
     } catch (error: any) {
@@ -101,6 +105,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
           
           // Convert to JSON
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          console.log("Excel JSON data:", jsonData);
           
           if (!Array.isArray(jsonData) || jsonData.length === 0) {
             reject(new Error("Formato de arquivo inválido ou vazio"));
@@ -166,11 +171,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
       setImporting(true);
       
       // Filter valid records only for import
-      const validRecords = previewData.filter(item => item.isValid).map(item => ({
-        nome_convidado: item.nome_convidado,
-        telefone: item.telefone,
-        mensagem_personalizada: item.mensagem_personalizada
-      }));
+      const validRecords = previewData.filter(item => item.isValid);
       
       if (validRecords.length === 0) {
         toast({
@@ -182,15 +183,27 @@ export const useImportConvites = (eventoId: string | undefined) => {
         return;
       }
       
+      console.log("Sending valid records for import:", validRecords);
+      
       // Create form data
       const formData = new FormData();
       formData.append('file', file);
       
-      // Call the API to import contacts using the dedicated import endpoint
+      // Get auth token to ensure it's included in the request
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) {
+        throw new Error("Usuário não autenticado. Faça login novamente.");
+      }
+      
+      // Call the API to import contacts using the dedicated import endpoint with explicit auth header
       const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
         method: "POST",
         body: formData,
-        // FormData sets the correct Content-Type automatically with boundary
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
 
       if (error) {

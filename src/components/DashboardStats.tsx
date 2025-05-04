@@ -43,12 +43,22 @@ const DashboardStats = ({ eventoId }: DashboardStatsProps) => {
       try {
         setLoading(true);
         
+        // Garantir que temos o token de autenticação
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) {
+          throw new Error("Usuário não autenticado");
+        }
+        
         const { data, error } = await supabase.functions.invoke(`convites/eventos/${eventoId}/dashboard`, {
-          method: "GET"
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`
+          }
         });
 
         if (error) throw new Error(error.message);
         
+        console.log("Dashboard data received:", data);
         setDados(data);
       } catch (err: any) {
         console.error("Erro ao buscar dados do dashboard:", err);
@@ -85,12 +95,22 @@ const DashboardStats = ({ eventoId }: DashboardStatsProps) => {
     return (
       <div className="p-4 border border-red-300 bg-red-50 text-red-800 rounded-md">
         <p>Erro ao carregar estatísticas: {error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
 
-  if (!dados) {
-    return null;
+  if (!dados || dados.total_convites === 0) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-gray-500">Não há dados para exibir ainda. Comece a adicionar convidados.</p>
+      </div>
+    );
   }
 
   const graphData = dados.dados_grafico.map(item => ({

@@ -1,3 +1,4 @@
+
 import { useParams } from "react-router-dom";
 import Footer from "@/components/Footer";
 import ImportHeader from "@/components/import/ImportHeader";
@@ -18,7 +19,7 @@ const ImportarConvidados = () => {
     previewData,
     showPreview,
     validateFile,
-    handleFileSelected,     // ✅ agora extraímos essa função
+    handleFileSelected,
     handleImportContacts,
     cancelImport,
     removeFile
@@ -33,12 +34,9 @@ const ImportarConvidados = () => {
           eventoData={evento?.data_evento}
         />
 
-        {/* ⚠️ ImportXLSX usa a prop `onData` (não `onUpload`) */}
         <ImportXLSX onUpload={(rows) => {
-          const file = rows[0]; // Assuming rows[0] contains the file
-          if (file instanceof File) {
-            handleFileSelected(file);
-          }
+          console.log("Rows received from XLSX component:", rows);
+          handleFileSelected(rows[0] instanceof File ? rows[0] : null);
         }} />
 
         <ImportCard
@@ -48,7 +46,7 @@ const ImportarConvidados = () => {
           importing={importing}
           showPreview={showPreview}
           previewData={previewData}
-          onFileSelected={handleFileSelected}  // 📥 re-adicionamos aqui
+          onFileSelected={handleFileSelected}
           onValidate={validateFile}
           onImport={handleImportContacts}
           onCancel={cancelImport}
