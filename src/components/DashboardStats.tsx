@@ -42,20 +42,12 @@ const DashboardStats = ({ eventoId }: DashboardStatsProps) => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
         
         // Garantir que temos o token de autenticação
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw new Error("Erro ao obter sessão: " + sessionError.message);
-        }
-        
+        const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData.session) {
           throw new Error("Usuário não autenticado");
         }
-        
-        console.log("Auth token available for dashboard:", !!sessionData.session.access_token);
         
         const { data, error } = await supabase.functions.invoke(`convites/eventos/${eventoId}/dashboard`, {
           method: "GET",
@@ -64,10 +56,7 @@ const DashboardStats = ({ eventoId }: DashboardStatsProps) => {
           }
         });
 
-        if (error) {
-          console.error("Dashboard function error:", error);
-          throw new Error(error.message || "Erro ao buscar dados do dashboard");
-        }
+        if (error) throw new Error(error.message);
         
         console.log("Dashboard data received:", data);
         setDados(data);

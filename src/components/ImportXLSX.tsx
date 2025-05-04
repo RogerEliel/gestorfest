@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 
 interface ImportXLSXProps {
-  onUpload: (data: any[], file: File) => void;
+  onUpload: (rows: any[]) => void;
 }
 
 export default function ImportXLSX({ onUpload }: ImportXLSXProps) {
@@ -27,7 +27,7 @@ export default function ImportXLSX({ onUpload }: ImportXLSXProps) {
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       
       console.log("XLSX parsed data:", rows); // Debug log
-      onUpload(rows, file);
+      onUpload(rows);
     } catch (err: any) {
       setError("Erro ao processar o arquivo: " + (err.message || "Erro desconhecido"));
       console.error("XLSX parsing error:", err);

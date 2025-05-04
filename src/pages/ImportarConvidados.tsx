@@ -34,9 +34,9 @@ const ImportarConvidados = () => {
           eventoData={evento?.data_evento}
         />
 
-        <ImportXLSX onUpload={(rows, uploadedFile) => {
+        <ImportXLSX onUpload={(rows) => {
           console.log("Rows received from XLSX component:", rows);
-          handleFileSelected(uploadedFile, rows);
+          handleFileSelected(rows[0] instanceof File ? rows[0] : null);
         }} />
 
         <ImportCard
