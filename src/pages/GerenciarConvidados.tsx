@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -9,21 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle,
-  DialogFooter
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
 import DashboardStats from "@/components/DashboardStats";
 import RSVPButtonGroup from "@/components/RSVPButtonGroup";
-
 interface Convite {
   id: string;
   nome_convidado: string;
@@ -34,18 +25,20 @@ interface Convite {
   enviado_em?: string;
   respondido_em?: string;
 }
-
 interface Evento {
   id: string;
   nome: string;
   data_evento: string;
   local: string;
 }
-
 const GerenciarConvidados = () => {
-  const { id: eventoId } = useParams();
+  const {
+    id: eventoId
+  } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [convites, setConvites] = useState<Convite[]>([]);
   const [evento, setEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,78 +46,73 @@ const GerenciarConvidados = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedConviteId, setSelectedConviteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("convites");
-
   useEffect(() => {
     if (!eventoId) return;
-    
     checkAuth();
     fetchEvento();
     fetchConvites();
   }, [eventoId]);
-
   const checkAuth = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    
+    const {
+      data: sessionData
+    } = await supabase.auth.getSession();
     if (!sessionData.session) {
       navigate("/login");
       return;
     }
   };
-
   const fetchEvento = async () => {
     if (!eventoId) return;
-    
     try {
-      const { data, error } = await supabase.functions.invoke(`eventos/${eventoId}`, {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke(`eventos/${eventoId}`, {
         method: "GET"
       });
-
       if (error) throw error;
-      
       setEvento(data);
     } catch (error: any) {
       console.error("Error fetching event:", error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os detalhes do evento.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const fetchConvites = async () => {
     if (!eventoId) return;
-    
     try {
       setLoading(true);
-      
-      const { data, error } = await supabase.functions.invoke(`convites/eventos/${eventoId}`, {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke(`convites/eventos/${eventoId}`, {
         method: "GET"
       });
-
       if (error) throw error;
-      
       setConvites(data || []);
     } catch (error: any) {
       console.error("Error fetching invitations:", error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar a lista de convidados.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const getShareUrl = async (conviteId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke(`convites/url/${conviteId}`, {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke(`convites/url/${conviteId}`, {
         method: "GET"
       });
-
       if (error) throw error;
-      
       setShareUrl(data.url);
       setSelectedConviteId(conviteId);
       setShareDialogOpen(true);
@@ -133,27 +121,24 @@ const GerenciarConvidados = () => {
       toast({
         title: "Erro",
         description: "Não foi possível gerar o link de compartilhamento.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
     toast({
       title: "Link copiado!",
-      description: "O link foi copiado para a área de transferência.",
+      description: "O link foi copiado para a área de transferência."
     });
   };
-
   const handleStatusUpdate = (conviteId: string, newStatus: "pendente" | "confirmado" | "recusado" | "conversar") => {
-    setConvites(prevConvites => 
-      prevConvites.map(convite => 
-        convite.id === conviteId ? { ...convite, status: newStatus, respondido_em: new Date().toISOString() } : convite
-      )
-    );
+    setConvites(prevConvites => prevConvites.map(convite => convite.id === conviteId ? {
+      ...convite,
+      status: newStatus,
+      respondido_em: new Date().toISOString()
+    } : convite));
   };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmado":
@@ -166,7 +151,6 @@ const GerenciarConvidados = () => {
         return <Badge variant="outline" className="bg-gray-100 text-gray-800">Pendente</Badge>;
     }
   };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "confirmado":
@@ -179,7 +163,6 @@ const GerenciarConvidados = () => {
         return <HelpCircle className="h-5 w-5 text-gray-400" />;
     }
   };
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
     try {
@@ -195,9 +178,7 @@ const GerenciarConvidados = () => {
   const recusados = convites.filter(c => c.status === "recusado").length;
   const pendentes = convites.filter(c => c.status === "pendente").length;
   const conversas = convites.filter(c => c.status === "conversar").length;
-
-  return (
-    <div className="min-h-screen flex flex-col">
+  return <div className="min-h-screen flex flex-col">
       <main className="flex-grow container mx-auto p-4 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Gestão de Convidados</h1>
@@ -206,7 +187,7 @@ const GerenciarConvidados = () => {
               Voltar
             </Button>
             <Button asChild>
-              <Link to={`/eventos/${eventoId}/convidados/importar`}>
+              <Link to={`/eventos/${eventoId}/convidados/importar`} className="Excluir esse bot\xE3o">
                 <UploadCloud className="mr-2 h-4 w-4" />
                 Importar CSV
               </Link>
@@ -214,8 +195,7 @@ const GerenciarConvidados = () => {
           </div>
         </div>
 
-        {evento && (
-          <Card>
+        {evento && <Card>
             <CardHeader>
               <CardTitle>{evento.nome}</CardTitle>
               <CardDescription>
@@ -241,7 +221,7 @@ const GerenciarConvidados = () => {
                       <CardContent className="pb-2 pt-0">
                         <p className="text-2xl font-bold">{confirmados}</p>
                         <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round((confirmados / totalConvites) * 100) : 0}% do total
+                          {totalConvites > 0 ? Math.round(confirmados / totalConvites * 100) : 0}% do total
                         </p>
                       </CardContent>
                     </Card>
@@ -253,7 +233,7 @@ const GerenciarConvidados = () => {
                       <CardContent className="pb-2 pt-0">
                         <p className="text-2xl font-bold">{recusados}</p>
                         <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round((recusados / totalConvites) * 100) : 0}% do total
+                          {totalConvites > 0 ? Math.round(recusados / totalConvites * 100) : 0}% do total
                         </p>
                       </CardContent>
                     </Card>
@@ -265,7 +245,7 @@ const GerenciarConvidados = () => {
                       <CardContent className="pb-2 pt-0">
                         <p className="text-2xl font-bold">{pendentes}</p>
                         <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round((pendentes / totalConvites) * 100) : 0}% do total
+                          {totalConvites > 0 ? Math.round(pendentes / totalConvites * 100) : 0}% do total
                         </p>
                       </CardContent>
                     </Card>
@@ -277,27 +257,22 @@ const GerenciarConvidados = () => {
                       <CardContent className="pb-2 pt-0">
                         <p className="text-2xl font-bold">{conversas}</p>
                         <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round((conversas / totalConvites) * 100) : 0}% do total
+                          {totalConvites > 0 ? Math.round(conversas / totalConvites * 100) : 0}% do total
                         </p>
                       </CardContent>
                     </Card>
                   </div>
                   
-                  {loading ? (
-                    <div className="flex justify-center p-4">
+                  {loading ? <div className="flex justify-center p-4">
                       <p>Carregando lista de convidados...</p>
-                    </div>
-                  ) : convites.length === 0 ? (
-                    <div className="text-center py-8">
+                    </div> : convites.length === 0 ? <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">Você ainda não tem convidados neste evento.</p>
                       <Button asChild>
                         <Link to={`/eventos/${eventoId}/convidados/importar`}>
                           Importar convidados
                         </Link>
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
+                    </div> : <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -310,8 +285,7 @@ const GerenciarConvidados = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {convites.map((convite) => (
-                            <TableRow key={convite.id}>
+                          {convites.map(convite => <TableRow key={convite.id}>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   {getStatusIcon(convite.status)}
@@ -322,29 +296,17 @@ const GerenciarConvidados = () => {
                               <TableCell>{convite.telefone}</TableCell>
                               <TableCell>{convite.respondido_em ? formatDate(convite.respondido_em) : "Não respondido"}</TableCell>
                               <TableCell>
-                                <RSVPButtonGroup 
-                                  conviteId={convite.id}
-                                  eventoId={eventoId || ""}
-                                  status={convite.status}
-                                  onStatusUpdate={(newStatus) => handleStatusUpdate(convite.id, newStatus)}
-                                />
+                                <RSVPButtonGroup conviteId={convite.id} eventoId={eventoId || ""} status={convite.status} onStatusUpdate={newStatus => handleStatusUpdate(convite.id, newStatus)} />
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button 
-                                  size="icon"
-                                  variant="outline"
-                                  onClick={() => getShareUrl(convite.id)}
-                                  title="Compartilhar"
-                                >
+                                <Button size="icon" variant="outline" onClick={() => getShareUrl(convite.id)} title="Compartilhar">
                                   <Share2 className="h-4 w-4" />
                                 </Button>
                               </TableCell>
-                            </TableRow>
-                          ))}
+                            </TableRow>)}
                         </TableBody>
                       </Table>
-                    </div>
-                  )}
+                    </div>}
                 </TabsContent>
                 
                 <TabsContent value="dashboard">
@@ -352,8 +314,7 @@ const GerenciarConvidados = () => {
                 </TabsContent>
               </Tabs>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
       </main>
       <Footer />
 
@@ -366,30 +327,20 @@ const GerenciarConvidados = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-x-2">
-            <Input 
-              readOnly 
-              value={shareUrl} 
-              onClick={(e) => (e.target as HTMLInputElement).select()} 
-            />
+            <Input readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} />
             <Button onClick={handleCopyLink}>Copiar</Button>
           </div>
           <DialogFooter className="sm:justify-start">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                if (selectedConviteId) {
-                  window.open(shareUrl, '_blank');
-                }
-              }}
-            >
+            <Button type="button" variant="secondary" onClick={() => {
+            if (selectedConviteId) {
+              window.open(shareUrl, '_blank');
+            }
+          }}>
               Abrir link
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 };
-
 export default GerenciarConvidados;
