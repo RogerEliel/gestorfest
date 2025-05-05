@@ -41,3 +41,7 @@ function = "audit-log"
 [[edge_functions.routes]]
 path = "/audit-log-batch"
 function = "audit-log-batch"
+
+[[edge_functions.routes]]
+path = "/convites/importar/*"
+function = "convites"

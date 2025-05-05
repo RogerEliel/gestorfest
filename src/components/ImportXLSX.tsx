@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 
 interface ImportXLSXProps {
-  onUpload: (rows: any[]) => void;
+  onUpload: (parsedData: any[]) => void;
 }
 
 export default function ImportXLSX({ onUpload }: ImportXLSXProps) {

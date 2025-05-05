@@ -2,8 +2,12 @@
 // Import required dependencies
 import { corsHeaders } from "./utils.ts";
 import { authenticateAndVerifyEventOwnership } from "./auth.ts";
-import { parseExcelFile } from "./excel-parser.ts";
 import { insertGuestData } from "./db-operations.ts";
+
+export interface ImportError {
+  row: number;
+  error: string;
+}
 
 // Main function to handle requests
 Deno.serve(async (req) => {
@@ -43,60 +47,97 @@ Deno.serve(async (req) => {
     // Authenticate user and verify event ownership
     const authResult = await authenticateAndVerifyEventOwnership(req, eventoId);
     if (!authResult.success) {
+      console.log("Authentication failed:", authResult);
       return authResult.response!;
     }
 
     const { supabase, profile } = authResult;
+    console.log("User authenticated, profile:", profile?.usuario_id);
 
-    // Get the Excel file from request
+    // Parse the JSON body
     if (!req.body) {
       return new Response(
-        JSON.stringify({ error: "Arquivo não encontrado na requisição" }),
+        JSON.stringify({ error: "Dados não encontrados na requisição" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     try {
-      // Read the form data
-      const formData = await req.formData();
-      const file = formData.get("file");
+      // Read the JSON data
+      const body = await req.json();
+      const convites = body.convites as Array<{
+        nome_convidado: string;
+        telefone: string;
+        mensagem_personalizada?: string | null;
+      }>;
 
-      console.log("Form data received, file present:", file ? "yes" : "no");
-      console.log("File type:", file ? (file instanceof File ? "File object" : typeof file) : "N/A");
-
-      if (!file || !(file instanceof File)) {
+      console.log("Received convites data:", convites?.length, "records");
+      
+      if (!convites || !Array.isArray(convites) || convites.length === 0) {
         return new Response(
-          JSON.stringify({ error: "Arquivo não encontrado ou inválido" }),
+          JSON.stringify({ error: "Nenhum convidado para importar" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      console.log("File name:", file.name, "File size:", file.size);
+      // Process and validate the data
+      const toInsert: Array<{
+        nome_convidado: string;
+        telefone: string;
+        mensagem_personalizada: string | null;
+        evento_id: string;
+        status: string;
+      }> = [];
+      
+      const failures: ImportError[] = [];
+      
+      // Validate each contact entry
+      convites.forEach((convite, index) => {
+        if (!convite.nome_convidado) {
+          failures.push({
+            row: index + 1,
+            error: "Nome do convidado é obrigatório"
+          });
+          return;
+        }
+        
+        if (!convite.telefone) {
+          failures.push({
+            row: index + 1,
+            error: "Telefone é obrigatório"
+          });
+          return;
+        }
+        
+        // Add validated record
+        toInsert.push({
+          nome_convidado: convite.nome_convidado,
+          telefone: convite.telefone,
+          mensagem_personalizada: convite.mensagem_personalizada || null,
+          evento_id: eventoId,
+          status: "pendente"
+        });
+      });
 
-      // Parse and validate the Excel file
-      const parseResult = await parseExcelFile(file);
-      if (!parseResult.success) {
-        return parseResult.response!;
-      }
-
-      const { toInsert, failures } = parseResult;
-
-      console.log("Parse result - records to insert:", toInsert?.length, "failures:", failures?.length);
+      console.log("Validation complete. Valid:", toInsert.length, "Failed:", failures.length);
 
       // Insert data into the database
       const insertResult = await insertGuestData(
         supabase, 
         eventoId, 
         profile!.usuario_id, 
-        toInsert!, 
-        failures!
+        toInsert, 
+        failures
       );
       
       return insertResult.response!;
-    } catch (formError) {
-      console.error("Error processing form data:", formError);
+    } catch (parseError) {
+      console.error("Error parsing request data:", parseError);
       return new Response(
-        JSON.stringify({ error: "Erro ao processar dados do formulário", details: formError.message }),
+        JSON.stringify({ 
+          error: "Erro ao processar dados da requisição", 
+          details: parseError instanceof Error ? parseError.message : "Erro desconhecido" 
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
