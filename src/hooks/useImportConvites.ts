@@ -2,27 +2,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { AuditAction, logUserAction } from "@/lib/auditLogger";
-import { isValidPhoneNumber } from "@/lib/validation";
-
-interface ImportError {
-  row: number;
-  error: string;
-}
-
-interface ImportPreviewItem {
-  nome_convidado: string;
-  telefone: string;
-  mensagem_personalizada?: string | null;
-  isValid: boolean;
-  error?: string;
-}
-
-interface ImportResponse {
-  inserted_count: number;
-  failures: ImportError[];
-}
+import { ImportError, ImportPreviewItem } from "@/types/import.types";
+import { validateImportData, formatImportPayload } from "@/utils/importUtils";
+import { importContacts } from "@/services/importService";
 
 export const useImportConvites = (eventoId: string | undefined) => {
   const navigate = useNavigate();
@@ -51,30 +34,7 @@ export const useImportConvites = (eventoId: string | undefined) => {
       setPreviewData([]);
       
       // Validate and format data
-      const previewItems: ImportPreviewItem[] = [];
-      
-      parsedData.forEach((row: any, index: number) => {
-        const item: ImportPreviewItem = {
-          nome_convidado: String(row.nome_convidado || ""),
-          telefone: String(row.telefone || "").replace(/\D/g, ''),
-          mensagem_personalizada: row.observacao ? String(row.observacao) : null,
-          isValid: true
-        };
-        
-        // Validate required fields
-        if (!item.nome_convidado) {
-          item.isValid = false;
-          item.error = "Nome do convidado é obrigatório";
-        } else if (!item.telefone) {
-          item.isValid = false;
-          item.error = "Telefone é obrigatório";
-        } else if (!isValidPhoneNumber(item.telefone)) {
-          item.isValid = false;
-          item.error = "Número de telefone inválido";
-        }
-        
-        previewItems.push(item);
-      });
+      const previewItems = validateImportData(parsedData);
       
       setPreviewData(previewItems);
       setShowPreview(true);
@@ -116,20 +76,11 @@ export const useImportConvites = (eventoId: string | undefined) => {
   };
 
   const handleImportContacts = async () => {
-    if (!eventoId) {
-      toast({
-        title: "Erro",
-        description: "ID do evento não encontrado.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
       setImporting(true);
       
       // Filter valid records only for import
-      const validRecords = previewData.filter(item => item.isValid);
+      const validRecords = formatImportPayload(previewData);
       
       if (validRecords.length === 0) {
         toast({
@@ -137,61 +88,35 @@ export const useImportConvites = (eventoId: string | undefined) => {
           description: "Não há registros válidos para importar.",
           variant: "destructive",
         });
-        setImporting(false);
         return;
       }
       
       console.log("Sending valid records for import:", validRecords);
       
-      // Get auth token to ensure it's included in the request
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const { data, error } = await importContacts(eventoId, validRecords);
       
-      if (!token) {
-        throw new Error("Usuário não autenticado. Faça login novamente.");
-      }
-      
-      // Format data as required by the API
-      const payload = {
-        convites: validRecords.map(item => ({
-          nome_convidado: item.nome_convidado,
-          telefone: item.telefone,
-          mensagem_personalizada: item.mensagem_personalizada
-        }))
-      };
-      
-      console.log("Sending payload to edge function:", payload);
-      
-      // Call the API with JSON payload instead of FormData
-      const { data, error } = await supabase.functions.invoke(`convites/importar/${eventoId}`, {
-        method: "POST",
-        body: payload,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
       if (error) {
-        console.error("Import error:", error);
         throw error;
       }
       
-      const response = data as ImportResponse;
-      console.log("Import response:", response);
+      if (!data) {
+        throw new Error("Resposta vazia do servidor");
+      }
       
-      if (response.failures && response.failures.length > 0) {
-        setFailures(response.failures);
+      console.log("Import response:", data);
+      
+      if (data.failures && data.failures.length > 0) {
+        setFailures(data.failures);
         
         toast({
           title: "Importação parcial",
-          description: `${response.inserted_count} convidados importados com ${response.failures.length} falhas.`,
+          description: `${data.inserted_count} convidados importados com ${data.failures.length} falhas.`,
           variant: "destructive",
         });
       } else {
         toast({
           title: "Sucesso",
-          description: `${response.inserted_count} convidados importados com sucesso.`,
+          description: `${data.inserted_count} convidados importados com sucesso.`,
         });
         
         // Navigate back to the guest management page after a successful import
@@ -204,8 +129,8 @@ export const useImportConvites = (eventoId: string | undefined) => {
       logUserAction(
         AuditAction.IMPORT_CONTACTS,
         { 
-          totalImported: response.inserted_count,
-          totalFailures: response.failures?.length || 0
+          totalImported: data.inserted_count,
+          totalFailures: data.failures?.length || 0
         },
         eventoId,
         'evento'
