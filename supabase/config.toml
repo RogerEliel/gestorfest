@@ -3,15 +3,20 @@ project_id = "xsalkjgevllriluawvcp"
 
 [api]
 enabled = true
-
-[[api.schemas]]
-name = "public"
+port = 54321
+schemas = ["public", "storage"]
 
 [db]
-enabled = true
+port = 54322
 
-[realtime]
+[studio]
 enabled = true
+port = 54323
+api_url = "http://localhost"
+
+[inbucket]
+enabled = true
+port = 54324
 
 [storage]
 enabled = true
@@ -19,29 +24,9 @@ enabled = true
 [auth]
 enabled = true
 
-[edge_functions]
+[realtime]
 enabled = true
 
-[[edge_functions.routes]]
-path = "/eventos"
-function = "eventos"
-
-[[edge_functions.routes]]
-path = "/eventos/*"
-function = "eventos"
-
-[[edge_functions.routes]]
-path = "/convites/*"
-function = "convites"
-
-[[edge_functions.routes]]
-path = "/audit-log"
-function = "audit-log"
-
-[[edge_functions.routes]]
-path = "/audit-log-batch"
-function = "audit-log-batch"
-
-[[edge_functions.routes]]
-path = "/convites/importar/*"
-function = "convites"
+[[functions]]
+name = "convites/importar/[eventoId]"
+verify_jwt = true

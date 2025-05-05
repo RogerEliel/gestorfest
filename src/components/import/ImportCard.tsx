@@ -25,7 +25,7 @@ interface ImportCardProps {
   importing: boolean;
   showPreview: boolean;
   previewData: ImportPreviewItem[];
-  onFileSelected: (file: File) => void;
+  onFileSelected: (data: any[]) => void;
   onValidate: () => void;
   onImport: () => void;
   onCancel: () => void;
@@ -57,12 +57,6 @@ const ImportCard = ({
       <CardContent>
         {!showPreview && (
           <>
-            <UploadAreaXLSX
-              onFileSelected={onFileSelected}
-              isLoading={validating}
-              accept=".xlsx"
-            />
-            
             <ImportErrorDisplay failures={failures} />
             
             {file && (

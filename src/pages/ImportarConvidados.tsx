@@ -18,8 +18,8 @@ const ImportarConvidados = () => {
     importing,
     previewData,
     showPreview,
-    validateFile,
     handleFileSelected,
+    validateFile,
     handleImportContacts,
     cancelImport,
     removeFile
