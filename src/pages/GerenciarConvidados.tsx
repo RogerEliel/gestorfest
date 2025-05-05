@@ -1,35 +1,22 @@
 
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { UploadCloud, CheckCircle, XCircle, HelpCircle, MessageCircle, Share2, PieChart, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PieChart } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
 import DashboardStats from "@/components/DashboardStats";
-import RSVPButtonGroup from "@/components/RSVPButtonGroup";
 import AddGuestModal from "@/components/convites/AddGuestModal";
 import { useConvites } from "@/hooks/useConvites";
 import { SingleGuestFormValues } from "@/schemas/convite";
-
-interface Convite {
-  id: string;
-  nome_convidado: string;
-  telefone: string;
-  status: "pendente" | "confirmado" | "recusado" | "conversar";
-  mensagem_personalizada?: string;
-  resposta?: string;
-  enviado_em?: string;
-  respondido_em?: string;
-}
+import ConvitesStats from "@/components/convites/ConvitesStats";
+import ConvitesTable from "@/components/convites/ConvitesTable";
+import ShareLinkDialog from "@/components/convites/ShareLinkDialog";
+import EmptyGuestState from "@/components/convites/EmptyGuestState";
+import EventoHeader from "@/components/convites/EventoHeader";
 
 interface Evento {
   id: string;
@@ -50,7 +37,7 @@ const GerenciarConvidados = () => {
   const [addGuestModalOpen, setAddGuestModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Use our new hook for managing convites
+  // Use our hook for managing convites
   const { convites, loading, fetchConvites, addConvite } = useConvites(eventoId || "");
 
   useEffect(() => {
@@ -144,29 +131,9 @@ const GerenciarConvidados = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "confirmado":
-        return <Badge variant="outline" className="bg-green-100 text-green-800">Confirmado</Badge>;
-      case "recusado":
-        return <Badge variant="outline" className="bg-red-100 text-red-800">Recusado</Badge>;
-      case "conversar":
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Conversar</Badge>;
-      default:
-        return <Badge variant="outline" className="bg-gray-100 text-gray-800">Pendente</Badge>;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "confirmado":
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case "recusado":
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case "conversar":
-        return <MessageCircle className="h-5 w-5 text-blue-500" />;
-      default:
-        return <HelpCircle className="h-5 w-5 text-gray-400" />;
+  const handleOpenLink = () => {
+    if (selectedConviteId) {
+      window.open(shareUrl, '_blank');
     }
   };
 
@@ -186,28 +153,16 @@ const GerenciarConvidados = () => {
   const pendentes = convites.filter(c => c.status === "pendente").length;
   const conversas = convites.filter(c => c.status === "conversar").length;
   
-  return <div className="min-h-screen flex flex-col">
+  return (
+    <div className="min-h-screen flex flex-col">
       <main className="flex-grow container mx-auto p-4 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Gestão de Convidados</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(`/dashboard`)}>
-              Voltar
-            </Button>
-            <Button variant="outline" onClick={() => setAddGuestModalOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Adicionar Convidado
-            </Button>
-            <Button asChild>
-              <Link to={`/eventos/${eventoId}/convidados/importar`} className="Excluir esse botão">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Importar CSV
-              </Link>
-            </Button>
-          </div>
-        </div>
+        <EventoHeader 
+          onAddGuestClick={() => setAddGuestModalOpen(true)} 
+          eventoId={eventoId || ""}
+        />
 
-        {evento && <Card>
+        {evento && (
+          <Card>
             <CardHeader>
               <CardTitle>{evento.nome}</CardTitle>
               <CardDescription>
@@ -225,107 +180,32 @@ const GerenciarConvidados = () => {
                 </TabsList>
                 
                 <TabsContent value="convites" className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <Card className="bg-green-50">
-                      <CardHeader className="py-2">
-                        <CardTitle className="text-sm font-medium">Confirmados</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-0">
-                        <p className="text-2xl font-bold">{confirmados}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round(confirmados / totalConvites * 100) : 0}% do total
-                        </p>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-red-50">
-                      <CardHeader className="py-2">
-                        <CardTitle className="text-sm font-medium">Recusados</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-0">
-                        <p className="text-2xl font-bold">{recusados}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round(recusados / totalConvites * 100) : 0}% do total
-                        </p>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-gray-50">
-                      <CardHeader className="py-2">
-                        <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-0">
-                        <p className="text-2xl font-bold">{pendentes}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round(pendentes / totalConvites * 100) : 0}% do total
-                        </p>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-blue-50">
-                      <CardHeader className="py-2">
-                        <CardTitle className="text-sm font-medium">Conversas</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-2 pt-0">
-                        <p className="text-2xl font-bold">{conversas}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {totalConvites > 0 ? Math.round(conversas / totalConvites * 100) : 0}% do total
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <ConvitesStats 
+                    confirmados={confirmados}
+                    recusados={recusados}
+                    pendentes={pendentes}
+                    conversas={conversas}
+                    totalConvites={totalConvites}
+                  />
                   
-                  {loading ? <div className="flex justify-center p-4">
+                  {loading ? (
+                    <div className="flex justify-center p-4">
                       <p>Carregando lista de convidados...</p>
-                    </div> : convites.length === 0 ? <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">Você ainda não tem convidados neste evento.</p>
-                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                        <Button onClick={() => setAddGuestModalOpen(true)}>
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Adicionar Convidado
-                        </Button>
-                        <Button asChild>
-                          <Link to={`/eventos/${eventoId}/convidados/importar`}>
-                            <UploadCloud className="mr-2 h-4 w-4" />
-                            Importar Convidados
-                          </Link>
-                        </Button>
-                      </div>
-                    </div> : <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Telefone</TableHead>
-                            <TableHead>Respondido</TableHead>
-                            <TableHead>Ações</TableHead>
-                            <TableHead></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {convites.map(convite => <TableRow key={convite.id}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {getStatusIcon(convite.status)}
-                                  {getStatusBadge(convite.status)}
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium">{convite.nome_convidado}</TableCell>
-                              <TableCell>{convite.telefone}</TableCell>
-                              <TableCell>{convite.respondido_em ? formatDate(convite.respondido_em) : "Não respondido"}</TableCell>
-                              <TableCell>
-                                <RSVPButtonGroup conviteId={convite.id} eventoId={eventoId || ""} status={convite.status} onStatusUpdate={newStatus => handleStatusUpdate(convite.id, newStatus)} />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button size="icon" variant="outline" onClick={() => getShareUrl(convite.id)} title="Compartilhar">
-                                  <Share2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>)}
-                        </TableBody>
-                      </Table>
-                    </div>}
+                    </div>
+                  ) : convites.length === 0 ? (
+                    <EmptyGuestState 
+                      eventoId={eventoId || ""} 
+                      onAddGuestClick={() => setAddGuestModalOpen(true)}
+                    />
+                  ) : (
+                    <ConvitesTable 
+                      convites={convites}
+                      eventoId={eventoId || ""}
+                      onStatusUpdate={handleStatusUpdate}
+                      onShareClick={getShareUrl}
+                      loading={loading}
+                    />
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="dashboard">
@@ -333,33 +213,18 @@ const GerenciarConvidados = () => {
                 </TabsContent>
               </Tabs>
             </CardContent>
-          </Card>}
+          </Card>
+        )}
       </main>
       <Footer />
 
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Compartilhar convite</DialogTitle>
-            <DialogDescription>
-              Compartilhe este link com o convidado para que ele possa confirmar sua presença.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center space-x-2">
-            <Input readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} />
-            <Button onClick={handleCopyLink}>Copiar</Button>
-          </div>
-          <DialogFooter className="sm:justify-start">
-            <Button type="button" variant="secondary" onClick={() => {
-            if (selectedConviteId) {
-              window.open(shareUrl, '_blank');
-            }
-          }}>
-              Abrir link
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ShareLinkDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        shareUrl={shareUrl}
+        onCopyLink={handleCopyLink}
+        onOpenLink={handleOpenLink}
+      />
 
       <AddGuestModal
         open={addGuestModalOpen}
@@ -367,7 +232,8 @@ const GerenciarConvidados = () => {
         onSubmit={handleAddGuest}
         isSubmitting={isSubmitting}
       />
-    </div>;
+    </div>
+  );
 };
 
 export default GerenciarConvidados;
