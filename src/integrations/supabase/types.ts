@@ -56,6 +56,41 @@ export type Database = {
           },
         ]
       }
+      convidados: {
+        Row: {
+          criado_em: string | null
+          evento_id: string
+          id: string
+          nome: string
+          observacao: string | null
+          telefone: string
+        }
+        Insert: {
+          criado_em?: string | null
+          evento_id: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          telefone: string
+        }
+        Update: {
+          criado_em?: string | null
+          evento_id?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convidados_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       convites: {
         Row: {
           created_at: string
