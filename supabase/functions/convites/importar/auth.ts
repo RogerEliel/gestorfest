@@ -1,10 +1,7 @@
 
 import { corsHeaders } from "./utils.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "@supabase/supabase-js";
 
-/**
- * Authenticates the request and verifies that the user owns the evento
- */
 export async function authenticateAndVerifyEventOwnership(req: Request, eventoId: string) {
   try {
     // Get authorization header

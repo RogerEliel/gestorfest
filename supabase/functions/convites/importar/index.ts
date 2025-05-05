@@ -2,7 +2,7 @@
 import { corsHeaders } from "./utils.ts";
 import { authenticateAndVerifyEventOwnership } from "./auth.ts";
 import { insertConviteLote } from "./db-operations.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { validateConviteData, ConviteData } from "./excel-parser.ts";
 
 Deno.serve(async (req) => {
   // Handle CORS
@@ -37,12 +37,32 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Preparing to import ${convites.length} contacts`);
+    
+    // Validate data before insertion
+    const validationErrors = validateConviteData(convites);
+    if (validationErrors.length > 0) {
+      console.log(`Found ${validationErrors.length} validation errors`);
+      return new Response(
+        JSON.stringify({
+          inserted_count: 0,
+          failures: validationErrors,
+        }),
+        { 
+          status: 200, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          } 
+        }
+      );
+    }
 
     // Insert contacts in batch
     const { data, errors, rowsInserted } = await insertConviteLote(
       authResult.supabase,
       eventoId,
-      convites
+      authResult.user.id,
+      convites as ConviteData[]
     );
 
     console.log(`Import completed: ${rowsInserted} inserted, ${errors.length} failures`);

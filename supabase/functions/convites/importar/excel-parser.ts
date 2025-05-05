@@ -1,125 +1,89 @@
 
-// Import required dependencies
-import * as XLSX from 'npm:xlsx';
-import { corsHeaders } from "./utils.ts";
+import { read, utils } from "xlsx";
 
-// Define interface for import errors
 export interface ImportError {
   row: number;
   error: string;
 }
 
-// Interface for successful parse result
-interface ParseResult {
-  success: boolean;
-  response?: Response;
-  toInsert?: Array<{
-    nome_convidado: string;
-    telefone: string;
-    mensagem_personalizada: string | null;
-    status: string;
-  }>;
-  failures?: ImportError[];
+export interface ConviteData {
+  nome_convidado: string;
+  telefone: string;
+  mensagem_personalizada?: string | null;
 }
 
-// Main function to parse Excel file
-export async function parseExcelFile(file: File): Promise<ParseResult> {
+/**
+ * Parse Excel file and extract guest data
+ */
+export function parseExcelFile(fileData: ArrayBuffer): ConviteData[] {
   try {
-    console.log("Starting Excel parsing...");
+    const workbook = read(fileData);
     
-    // Read the file as array buffer
-    const buffer = await file.arrayBuffer();
-    
-    // Parse the Excel file
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    
-    // Get the first sheet
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
-    // Convert to JSON
-    const data = XLSX.utils.sheet_to_json(worksheet);
-    
-    // Validate data format
-    if (!Array.isArray(data) || data.length === 0) {
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: "Formato de arquivo inválido. Não há dados para importar." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        )
-      };
+    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error("Arquivo Excel inválido ou vazio");
     }
     
-    console.log(`Found ${data.length} rows of data`);
+    // Get the first sheet
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
     
-    // Extract and validate data
-    const recordsToInsert: Array<{
-      nome_convidado: string;
-      telefone: string;
-      mensagem_personalizada: string | null;
-      status: string;
-    }> = [];
+    // Convert sheet to JSON with header row
+    const jsonData = utils.sheet_to_json(worksheet, { defval: "" });
     
-    const failures: ImportError[] = [];
+    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+      throw new Error("Nenhum dado encontrado na planilha");
+    }
     
-    // Process each row
-    data.forEach((row: any, index: number) => {
-      const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is headers
-      
-      // Check for required fields
-      if (!row.nome_convidado) {
-        failures.push({
-          row: rowNumber,
-          error: "Campo 'nome_convidado' obrigatório não fornecido"
-        });
-        return;
-      }
-      
-      if (!row.telefone) {
-        failures.push({
-          row: rowNumber,
-          error: "Campo 'telefone' obrigatório não fornecido"
-        });
-        return;
-      }
-      
-      // Validate phone number format (simple validation)
-      const phone = String(row.telefone).replace(/\D/g, '');
-      if (phone.length < 10 || phone.length > 15) {
-        failures.push({
-          row: rowNumber,
-          error: "Número de telefone inválido"
-        });
-        return;
-      }
-      
-      // Add validated record
-      recordsToInsert.push({
-        nome_convidado: String(row.nome_convidado).trim(),
-        telefone: phone,
-        mensagem_personalizada: row.observacao ? String(row.observacao) : null,
-        status: "pendente"
-      });
-    });
+    console.log("Excel data parsed:", jsonData.length, "records");
     
-    console.log(`Validation complete. Valid: ${recordsToInsert.length}, Failed: ${failures.length}`);
-    
-    // Return results
-    return {
-      success: true,
-      toInsert: recordsToInsert,
-      failures: failures
-    };
-    
-  } catch (error) {
-    console.error("Excel parsing error:", error);
-    return {
-      success: false,
-      response: new Response(
-        JSON.stringify({ error: "Erro ao processar o arquivo Excel" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      )
-    };
+    return jsonData.map((row: any) => ({
+      nome_convidado: String(row.nome_convidado || ""),
+      telefone: String(row.telefone || "").replace(/\D/g, ''),
+      mensagem_personalizada: row.mensagem_personalizada || row.observacao || null
+    }));
+  } catch (error: any) {
+    console.error("Error parsing Excel file:", error);
+    throw error;
   }
+}
+
+/**
+ * Validate imported data
+ */
+export function validateConviteData(data: ConviteData[]): ImportError[] {
+  const errors: ImportError[] = [];
+  
+  data.forEach((item, index) => {
+    if (!item.nome_convidado) {
+      errors.push({
+        row: index + 1,
+        error: "Nome do convidado é obrigatório"
+      });
+    }
+    
+    if (!item.telefone) {
+      errors.push({
+        row: index + 1,
+        error: "Telefone é obrigatório"
+      });
+    } else if (!isValidPhoneNumber(item.telefone)) {
+      errors.push({
+        row: index + 1,
+        error: "Formato de telefone inválido"
+      });
+    }
+  });
+  
+  return errors;
+}
+
+/**
+ * Basic phone number validation
+ */
+function isValidPhoneNumber(phone: string): boolean {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  
+  // Check if it's a valid length (minimum 8 digits)
+  return digits.length >= 8 && digits.length <= 15;
 }

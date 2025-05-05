@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ImportError, ImportResponse } from "@/types/import.types";
+import { ImportResponse } from "@/types/import.types";
 
 /**
  * Send validated contacts data to the import API
@@ -38,12 +38,19 @@ export async function importContacts(
     
     if (error) {
       console.error("Import error:", error);
-      throw error;
+      throw new Error(error.message || "Erro na chamada à API de importação");
+    }
+    
+    if (!data) {
+      throw new Error("Resposta vazia do servidor");
     }
     
     return { data: data as ImportResponse, error: null };
   } catch (error: any) {
     console.error("Error importing contacts:", error);
-    return { data: null, error };
+    return { 
+      data: null, 
+      error: new Error(error.message || "Erro desconhecido na importação")
+    };
   }
 }
