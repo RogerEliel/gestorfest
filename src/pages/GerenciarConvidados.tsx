@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { UploadCloud, CheckCircle, XCircle, HelpCircle, MessageCircle, Share2, PieChart } from "lucide-react";
+import { UploadCloud, CheckCircle, XCircle, HelpCircle, MessageCircle, Share2, PieChart, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
 import DashboardStats from "@/components/DashboardStats";
 import RSVPButtonGroup from "@/components/RSVPButtonGroup";
+import AddGuestModal from "@/components/convites/AddGuestModal";
+import { useConvites } from "@/hooks/useConvites";
+import { SingleGuestFormValues } from "@/schemas/convite";
+
 interface Convite {
   id: string;
   nome_convidado: string;
@@ -25,12 +29,14 @@ interface Convite {
   enviado_em?: string;
   respondido_em?: string;
 }
+
 interface Evento {
   id: string;
   nome: string;
   data_evento: string;
   local: string;
 }
+
 const GerenciarConvidados = () => {
   const {
     id: eventoId
@@ -39,13 +45,17 @@ const GerenciarConvidados = () => {
   const {
     toast
   } = useToast();
-  const [convites, setConvites] = useState<Convite[]>([]);
   const [evento, setEvento] = useState<Evento | null>(null);
-  const [loading, setLoading] = useState(true);
   const [shareUrl, setShareUrl] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedConviteId, setSelectedConviteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("convites");
+  const [addGuestModalOpen, setAddGuestModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Use our new hook for managing convites
+  const { convites, loading, fetchConvites, addConvite } = useConvites(eventoId || "");
+
   useEffect(() => {
     if (!eventoId) return;
     checkAuth();
@@ -109,7 +119,7 @@ const GerenciarConvidados = () => {
       const {
         data,
         error
-      } = await supabase.functions.invoke(`convites/url/${conviteId}`, {
+      } = await supabase.functions.invoke(`convites/${conviteId}/url`, {
         method: "GET"
       });
       if (error) throw error;
@@ -185,6 +195,10 @@ const GerenciarConvidados = () => {
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate(`/dashboard`)}>
               Voltar
+            </Button>
+            <Button variant="outline" onClick={() => setAddGuestModalOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Adicionar Convidado
             </Button>
             <Button asChild>
               <Link to={`/eventos/${eventoId}/convidados/importar`} className="Excluir esse bot\xE3o">
@@ -267,11 +281,18 @@ const GerenciarConvidados = () => {
                       <p>Carregando lista de convidados...</p>
                     </div> : convites.length === 0 ? <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">Você ainda não tem convidados neste evento.</p>
-                      <Button asChild>
-                        <Link to={`/eventos/${eventoId}/convidados/importar`}>
-                          Importar convidados
-                        </Link>
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        <Button onClick={() => setAddGuestModalOpen(true)}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Adicionar Convidado
+                        </Button>
+                        <Button asChild>
+                          <Link to={`/eventos/${eventoId}/convidados/importar`}>
+                            <UploadCloud className="mr-2 h-4 w-4" />
+                            Importar Convidados
+                          </Link>
+                        </Button>
+                      </div>
                     </div> : <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -341,6 +362,14 @@ const GerenciarConvidados = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddGuestModal
+        open={addGuestModalOpen}
+        onOpenChange={setAddGuestModalOpen}
+        onSubmit={handleAddGuest}
+        isSubmitting={isSubmitting}
+      />
     </div>;
 };
+
 export default GerenciarConvidados;

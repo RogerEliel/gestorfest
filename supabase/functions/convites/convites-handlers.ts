@@ -49,6 +49,23 @@ export async function criarConvitesEmLote(supabase: any, eventId: string, usuari
     );
   }
   
+  // Validate each convite
+  for (const convite of convitesData) {
+    if (!convite.nome_convidado || typeof convite.nome_convidado !== 'string' || convite.nome_convidado.length < 3) {
+      return new Response(
+        JSON.stringify({ error: 'O nome do convidado deve ter pelo menos 3 caracteres' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
+    if (!convite.telefone || typeof convite.telefone !== 'string' || convite.telefone.length < 8) {
+      return new Response(
+        JSON.stringify({ error: 'O telefone deve ter pelo menos 8 caracteres' }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+  }
+  
   // Check for duplicate phone numbers in the request
   const duplicadosCheck = verificarTelefonesDuplicados(convitesData);
   if (duplicadosCheck.hasDuplicados) {
@@ -93,6 +110,7 @@ export async function criarConvitesEmLote(supabase: any, eventId: string, usuari
     );
   }
 
+  // Return 201 Created for successful creation
   return new Response(
     JSON.stringify(data),
     { status: 201, headers: { "Content-Type": "application/json", ...corsHeaders } }
