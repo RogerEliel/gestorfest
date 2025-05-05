@@ -1,113 +1,84 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { corsHeaders } from "./utils.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-// Environment variables
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
+/**
+ * Authenticates the request and verifies that the user owns the evento
+ */
 export async function authenticateAndVerifyEventOwnership(req: Request, eventoId: string) {
   try {
-    // Create Supabase admin client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Get authorization header
+    const authHeader = req.headers.get('Authorization');
     
-    // Extract the token from the Authorization header
-    const authHeader = req.headers.get("Authorization");
-    console.log("Auth header:", authHeader ? "Present" : "Missing");
-    
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader) {
       return {
         success: false,
         response: new Response(
-          JSON.stringify({ error: "Autorização ausente ou inválida" }),
+          JSON.stringify({ error: "Não autorizado" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         )
       };
     }
     
-    const token = authHeader.replace("Bearer ", "");
+    // Extract token from header
+    const token = authHeader.replace('Bearer ', '');
     
-    // Verify the token and get the user
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    // Initialize Supabase client with service role key
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        }
+      }
+    );
     
-    if (userError || !user) {
-      console.error("User authentication error:", userError);
+    // Verify the token and get user information
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error("Authentication error:", authError);
       return {
         success: false,
         response: new Response(
-          JSON.stringify({ error: "Usuário não autenticado", details: userError?.message }),
+          JSON.stringify({ error: "Token inválido" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         )
       };
     }
     
-    console.log("User authenticated:", user.id);
-    
-    // Get the user profile
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, usuario_id")
-      .eq("id", user.id)
-      .single();
-    
-    if (profileError || !profileData) {
-      console.error("Profile fetch error:", profileError);
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: "Perfil de usuário não encontrado", details: profileError?.message }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        )
-      };
-    }
-    
-    console.log("Profile found:", profileData);
-    
-    // Check if user can access the event
+    // Verify that the user owns the event
     const { data: evento, error: eventoError } = await supabase
-      .from("eventos")
-      .select("id, usuario_id")
-      .eq("id", eventoId)
+      .from('eventos')
+      .select('id')
+      .eq('id', eventoId)
+      .eq('usuario_id', user.id)
       .single();
     
     if (eventoError || !evento) {
-      console.error("Event fetch error:", eventoError);
+      console.error("Event ownership verification error:", eventoError);
       return {
         success: false,
         response: new Response(
-          JSON.stringify({ error: "Evento não encontrado", details: eventoError?.message }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        )
-      };
-    }
-    
-    console.log("Event found:", evento);
-    console.log("Comparing user IDs:", profileData.usuario_id, "vs", evento.usuario_id);
-    
-    // Verify event ownership - check if the user owns the event
-    if (profileData.usuario_id !== evento.usuario_id) {
-      return {
-        success: false,
-        response: new Response(
-          JSON.stringify({ error: "Usuário não tem permissão para acessar este evento" }),
+          JSON.stringify({ error: "Você não tem permissão para acessar este evento" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         )
       };
     }
     
-    // User is authenticated and owns the event
     return {
       success: true,
       supabase,
-      profile: profileData
+      user
     };
-    
   } catch (error) {
-    console.error("Authentication error:", error);
+    console.error("Auth error:", error);
     return {
       success: false,
       response: new Response(
-        JSON.stringify({ error: "Erro de autenticação", details: error instanceof Error ? error.message : "Erro desconhecido" }),
+        JSON.stringify({ error: "Erro de autenticação" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       )
     };

@@ -1,8 +1,7 @@
 
 {
   "imports": {
-    "supabase/": "https://esm.sh/@supabase/supabase-js@2.38.4/",
-    "std/http/": "https://deno.land/std@0.168.0/http/",
-    "std/node/": "https://deno.land/std@0.177.0/node/"
+    "xlsx": "npm:xlsx@0.18.5",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3"
   }
 }
