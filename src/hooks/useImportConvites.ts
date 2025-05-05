@@ -5,7 +5,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AuditAction, logUserAction } from "@/lib/auditLogger";
 import { isValidPhoneNumber } from "@/lib/validation";
-import * as XLSX from 'xlsx';
 
 interface ImportError {
   row: number;

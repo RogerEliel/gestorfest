@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { Button } from "@/components/ui/button";
 
 interface ImportXLSXProps {
   onUpload: (parsedData: any[]) => void;
