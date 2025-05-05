@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -38,13 +39,9 @@ interface Evento {
 }
 
 const GerenciarConvidados = () => {
-  const {
-    id: eventoId
-  } = useParams();
+  const { id: eventoId } = useParams();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const [evento, setEvento] = useState<Evento | null>(null);
   const [shareUrl, setShareUrl] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -62,22 +59,19 @@ const GerenciarConvidados = () => {
     fetchEvento();
     fetchConvites();
   }, [eventoId]);
+
   const checkAuth = async () => {
-    const {
-      data: sessionData
-    } = await supabase.auth.getSession();
+    const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session) {
       navigate("/login");
       return;
     }
   };
+
   const fetchEvento = async () => {
     if (!eventoId) return;
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke(`eventos/${eventoId}`, {
+      const { data, error } = await supabase.functions.invoke(`eventos/${eventoId}`, {
         method: "GET"
       });
       if (error) throw error;
@@ -91,35 +85,10 @@ const GerenciarConvidados = () => {
       });
     }
   };
-  const fetchConvites = async () => {
-    if (!eventoId) return;
-    try {
-      setLoading(true);
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke(`convites/eventos/${eventoId}`, {
-        method: "GET"
-      });
-      if (error) throw error;
-      setConvites(data || []);
-    } catch (error: any) {
-      console.error("Error fetching invitations:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar a lista de convidados.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+
   const getShareUrl = async (conviteId: string) => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke(`convites/${conviteId}/url`, {
+      const { data, error } = await supabase.functions.invoke(`convites/${conviteId}/url`, {
         method: "GET"
       });
       if (error) throw error;
@@ -135,6 +104,7 @@ const GerenciarConvidados = () => {
       });
     }
   };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
     toast({
@@ -142,13 +112,38 @@ const GerenciarConvidados = () => {
       description: "O link foi copiado para a área de transferência."
     });
   };
+
   const handleStatusUpdate = (conviteId: string, newStatus: "pendente" | "confirmado" | "recusado" | "conversar") => {
-    setConvites(prevConvites => prevConvites.map(convite => convite.id === conviteId ? {
-      ...convite,
-      status: newStatus,
-      respondido_em: new Date().toISOString()
-    } : convite));
+    const updatedConvites = convites.map(convite => 
+      convite.id === conviteId ? {
+        ...convite,
+        status: newStatus,
+        respondido_em: new Date().toISOString()
+      } : convite
+    );
   };
+
+  const handleAddGuest = async (data: SingleGuestFormValues) => {
+    setIsSubmitting(true);
+    try {
+      await addConvite(data);
+      toast({
+        title: "Convidado adicionado",
+        description: `${data.nome_convidado} foi adicionado com sucesso.`
+      });
+      return Promise.resolve();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao adicionar convidado",
+        description: error.message || "Não foi possível adicionar o convidado.",
+        variant: "destructive"
+      });
+      return Promise.reject(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmado":
@@ -161,6 +156,7 @@ const GerenciarConvidados = () => {
         return <Badge variant="outline" className="bg-gray-100 text-gray-800">Pendente</Badge>;
     }
   };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "confirmado":
@@ -173,6 +169,7 @@ const GerenciarConvidados = () => {
         return <HelpCircle className="h-5 w-5 text-gray-400" />;
     }
   };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
     try {
@@ -188,6 +185,7 @@ const GerenciarConvidados = () => {
   const recusados = convites.filter(c => c.status === "recusado").length;
   const pendentes = convites.filter(c => c.status === "pendente").length;
   const conversas = convites.filter(c => c.status === "conversar").length;
+  
   return <div className="min-h-screen flex flex-col">
       <main className="flex-grow container mx-auto p-4 space-y-6">
         <div className="flex justify-between items-center">
@@ -201,7 +199,7 @@ const GerenciarConvidados = () => {
               Adicionar Convidado
             </Button>
             <Button asChild>
-              <Link to={`/eventos/${eventoId}/convidados/importar`} className="Excluir esse bot\xE3o">
+              <Link to={`/eventos/${eventoId}/convidados/importar`} className="Excluir esse botão">
                 <UploadCloud className="mr-2 h-4 w-4" />
                 Importar CSV
               </Link>
