@@ -1,14 +1,13 @@
+
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
-import Register from "@/pages/Register";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import PublicRoute from "@/components/PublicRoute";
-import ImportGuests from "@/pages/ImportGuests";
 import GerenciarConvidados from "@/pages/GerenciarConvidados";
+import ImportarConvidados from "@/pages/ImportarConvidados";
 
-// Adicione a importação do ConvidadosPage
+// Importação do ConvidadosPage
 import ConvidadosPage from "@/pages/ConvidadosPage";
 
 const routes = [
@@ -18,19 +17,7 @@ const routes = [
   },
   {
     path: "/login",
-    element: (
-      <PublicRoute>
-        <Login />
-      </PublicRoute>
-    ),
-  },
-  {
-    path: "/register",
-    element: (
-      <PublicRoute>
-        <Register />
-      </PublicRoute>
-    ),
+    element: <Login />,
   },
   {
     path: "/dashboard",
@@ -44,7 +31,7 @@ const routes = [
     path: "/eventos/:id/convidados/importar",
     element: (
       <ProtectedRoute>
-        <ImportGuests />
+        <ImportarConvidados />
       </ProtectedRoute>
     ),
   },
@@ -53,15 +40,6 @@ const routes = [
     element: (
       <ProtectedRoute>
         <GerenciarConvidados />
-      </ProtectedRoute>
-    ),
-  },
-  // Adicione a rota para a página de convidados
-  {
-    path: "/eventos/:id/convidados",
-    element: (
-      <ProtectedRoute>
-        <ConvidadosPage />
       </ProtectedRoute>
     ),
   },
