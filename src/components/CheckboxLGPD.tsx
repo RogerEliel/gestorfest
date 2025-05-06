@@ -2,7 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import CustomLabel from "@/components/ui/custom-label";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Control } from "react-hook-form";
 import { cn } from "@/lib/utils";
@@ -30,12 +30,12 @@ const CheckboxLGPD = ({ control, name, label, className }: CheckboxLGPDProps) =>
             />
           </FormControl>
           <div className="space-y-1 leading-none">
-            <Label 
+            <CustomLabel 
               htmlFor={`${name}-checkbox`} 
               className="text-sm font-normal"
             >
               {label}
-            </Label>
+            </CustomLabel>
             <FormMessage />
           </div>
         </FormItem>

@@ -1,8 +1,8 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,9 +11,9 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import CustomLabel from "./ui/custom-label";
 
 const formSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -59,7 +59,7 @@ export default function ConvidadoForm({ onAdd, isSubmitting = false }: Convidado
           name="nome"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome</FormLabel>
+              <CustomLabel>Nome</CustomLabel>
               <FormControl>
                 <Input placeholder="Nome do convidado" {...field} />
               </FormControl>
@@ -73,7 +73,7 @@ export default function ConvidadoForm({ onAdd, isSubmitting = false }: Convidado
           name="telefone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Telefone</FormLabel>
+              <CustomLabel>Telefone</CustomLabel>
               <FormControl>
                 <Input placeholder="Telefone com DDD" {...field} />
               </FormControl>
@@ -87,7 +87,7 @@ export default function ConvidadoForm({ onAdd, isSubmitting = false }: Convidado
           name="observacao"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Observação</FormLabel>
+              <CustomLabel>Observação</CustomLabel>
               <FormControl>
                 <Textarea
                   placeholder="Observações sobre o convidado (opcional)"

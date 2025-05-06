@@ -12,6 +12,7 @@ interface LayoutProps {
 declare global {
   interface Window {
     gtag?: (...args: any[]) => void;
+    trackEvent?: (category: string, action: string, label?: string, value?: number) => void;
   }
 }
 

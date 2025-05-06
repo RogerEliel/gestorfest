@@ -91,9 +91,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error("Error during sign up:", error);
         return { data: null, error };
       }
-
-      // The trigger will automatically create the usuario entry
-      // No need to manually insert into usuarios table
       
       return { data, error: null };
     } catch (error) {

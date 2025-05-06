@@ -5,11 +5,13 @@ import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
+import { CustomPopoverTrigger } from "@/components/ui/custom-popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { EventoFormValues, eventoSchema } from "@/hooks/useEventoForm";
 import { UseFormReturn } from "react-hook-form";
+import CustomLabel from "./ui/custom-label";
 
 interface EventoFormProps {
   form: UseFormReturn<EventoFormValues>;
@@ -27,7 +29,7 @@ const EventoForm = ({ form, loading, onSubmit, onCancel }: EventoFormProps) => {
           name="nome"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome do evento</FormLabel>
+              <CustomLabel>Nome do evento</CustomLabel>
               <FormControl>
                 <Input placeholder="Ex: Aniversário de 15 anos da Maria" {...field} />
               </FormControl>
@@ -41,26 +43,24 @@ const EventoForm = ({ form, loading, onSubmit, onCancel }: EventoFormProps) => {
           name="data_evento"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Data do evento</FormLabel>
+              <CustomLabel>Data do evento</CustomLabel>
               <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP", { locale: ptBR })
-                      ) : (
-                        <span>Escolha uma data</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
+                <CustomPopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full pl-3 text-left font-normal",
+                      !field.value && "text-muted-foreground"
+                    )}
+                  >
+                    {field.value ? (
+                      format(field.value, "PPP", { locale: ptBR })
+                    ) : (
+                      <span>Escolha uma data</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </CustomPopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
@@ -83,7 +83,7 @@ const EventoForm = ({ form, loading, onSubmit, onCancel }: EventoFormProps) => {
           name="local"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Local do evento</FormLabel>
+              <CustomLabel>Local do evento</CustomLabel>
               <FormControl>
                 <Input placeholder="Ex: Salão de Festas ABC" {...field} />
               </FormControl>

@@ -6,7 +6,6 @@ import Login from "@/pages/Login";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import GerenciarConvidados from "@/pages/GerenciarConvidados";
 import ImportarConvidados from "@/pages/ImportarConvidados";
-import ConvidadosPage from "@/pages/ConvidadosPage";
 import Layout from "@/components/Layout";
 
 const AppRoutes = () => (

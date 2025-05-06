@@ -4,12 +4,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import ConsentCheckbox from "./ConsentCheckbox";
 import { supabase } from "@/integrations/supabase/client";
+import CustomLabel from "./ui/custom-label";
 
 interface RSVPFormProps {
   eventSlug: string;
@@ -61,6 +62,10 @@ const RSVPForm = ({ eventSlug, conviteId, onSuccess }: RSVPFormProps) => {
         throw new Error(error.message || "Erro ao processar RSVP");
       }
 
+      if (!data) {
+        throw new Error("Não foi possível criar o evento");
+      }
+
       toast({
         title: "Presença confirmada!",
         description: "Sua resposta foi registrada com sucesso.",
@@ -96,7 +101,7 @@ const RSVPForm = ({ eventSlug, conviteId, onSuccess }: RSVPFormProps) => {
           name="nome"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome</FormLabel>
+              <CustomLabel>Nome</CustomLabel>
               <FormControl>
                 <Input placeholder="Seu nome completo" {...field} />
               </FormControl>
@@ -110,7 +115,7 @@ const RSVPForm = ({ eventSlug, conviteId, onSuccess }: RSVPFormProps) => {
           name="resposta"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Mensagem (opcional)</FormLabel>
+              <CustomLabel>Mensagem (opcional)</CustomLabel>
               <FormControl>
                 <Textarea 
                   placeholder="Alguma observação para o organizador do evento?"
