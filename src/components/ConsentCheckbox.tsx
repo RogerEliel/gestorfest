@@ -1,7 +1,7 @@
 
 import { Link } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import CustomLabel from "@/components/ui/custom-label";
 import { FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Control } from "react-hook-form";
 
@@ -25,7 +25,7 @@ const ConsentCheckbox = ({ control, name }: ConsentCheckboxProps) => {
             />
           </FormControl>
           <div className="space-y-1 leading-none">
-            <Label 
+            <CustomLabel 
               htmlFor="consent-checkbox" 
               className="text-sm font-normal"
             >
@@ -34,7 +34,7 @@ const ConsentCheckbox = ({ control, name }: ConsentCheckboxProps) => {
                 Termo de Consentimento para Tratamento de Dados Pessoais
               </Link>{" "}
               do GestorFest.
-            </Label>
+            </CustomLabel>
             <FormMessage />
           </div>
         </FormItem>

@@ -1,7 +1,8 @@
 
 import { Control } from "react-hook-form";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form";
 import { InputPassword } from "@/components/ui/inputs";
+import CustomLabel from "@/components/ui/custom-label";
 
 interface PasswordFieldsProps {
   control: Control<any>;
@@ -15,7 +16,7 @@ const PasswordFields = ({ control }: PasswordFieldsProps) => {
         name="password"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Senha</FormLabel>
+            <CustomLabel>Senha</CustomLabel>
             <FormControl>
               <InputPassword placeholder="********" {...field} />
             </FormControl>
@@ -28,7 +29,7 @@ const PasswordFields = ({ control }: PasswordFieldsProps) => {
         name="confirmPassword"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Confirme a senha</FormLabel>
+            <CustomLabel>Confirme a senha</CustomLabel>
             <FormControl>
               <InputPassword placeholder="********" {...field} />
             </FormControl>
