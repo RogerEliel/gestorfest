@@ -3,12 +3,13 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData?: object) => Promise<{
+  signUp: (opts: { nome: string; email: string; password: string; cpf?: string; telefone?: string }) => Promise<{
     error: Error | null;
     data: any | null;
   }>;
@@ -39,18 +40,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up the auth listener first
+    // Set up the auth listener first to prevent missing auth events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log('Auth state changed:', event);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
       }
     );
 
-    // Check for existing session
+    // Then check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -62,19 +65,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, userData?: object) => {
+  const signUp = async ({ nome, email, password, cpf, telefone }: { 
+    nome: string; 
+    email: string; 
+    password: string;
+    cpf?: string;
+    telefone?: string;
+  }) => {
     try {
+      // First, create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData
+          data: {
+            nome,
+            telefone,
+            cpf,
+            tipo: "cliente"
+          }
         }
       });
       
-      return { data, error };
+      if (error) {
+        console.error("Error during sign up:", error);
+        return { data: null, error };
+      }
+
+      // The trigger will automatically create the usuario entry
+      // No need to manually insert into usuarios table
+      
+      return { data, error: null };
     } catch (error) {
-      console.error('Error during sign up:', error);
+      console.error("Error during sign up:", error);
       return { data: null, error: error as Error };
     }
   };
@@ -86,15 +109,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         password,
       });
       
-      return { data, error };
+      if (error) {
+        console.error("Error during sign in:", error);
+        return { data: null, error };
+      }
+      
+      return { data, error: null };
     } catch (error) {
-      console.error('Error during sign in:', error);
+      console.error("Error during sign in:", error);
       return { data: null, error: error as Error };
     }
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    navigate('/login');
   };
 
   const getUser = async () => {

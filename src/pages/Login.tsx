@@ -1,11 +1,10 @@
 
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import ForgotPassword from "@/components/auth/ForgotPassword";
@@ -15,9 +14,17 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { setSession } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // If user is already logged in, redirect to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,27 +32,25 @@ const Login = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signIn(email, password);
       
       if (error) throw error;
-      
-      setSession(data.session);
       
       toast({
         title: "Login realizado",
         description: "Você foi conectado com sucesso!",
       });
       
-      navigate("/dashboard");
+      // Check for redirect location
+      const redirectPath = sessionStorage.getItem("redirectAfterLogin") || "/dashboard";
+      sessionStorage.removeItem("redirectAfterLogin");
+      navigate(redirectPath);
     } catch (error: any) {
       console.error("Error logging in:", error);
       
       let errorMessage = "E-mail ou senha inválidos";
       
-      if (error.message.includes("Email not confirmed")) {
+      if (error.message?.includes("Email not confirmed")) {
         errorMessage = "Por favor, confirme seu e-mail antes de fazer login";
       }
       

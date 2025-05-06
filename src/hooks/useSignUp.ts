@@ -18,11 +18,12 @@ export const useSignUp = () => {
     try {
       setLoading(true);
       
-      const { error, data } = await signUp(values.email, values.password, {
+      const { error } = await signUp({
         nome: values.nome,
+        email: values.email,
+        password: values.password,
         telefone: values.telefone || undefined,
-        cpf: values.cpf,
-        tipo: "cliente"
+        cpf: values.cpf
       });
 
       if (error) {
