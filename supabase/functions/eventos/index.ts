@@ -9,6 +9,7 @@ import {
   deleteEvento,
   type EventoRequest 
 } from "./event-operations.ts";
+import { adicionarConvidado, listarConvidados } from "./convidados-handlers.ts";
 
 // Main function to process requests
 async function handler(req) {
@@ -22,6 +23,30 @@ async function handler(req) {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Get route information
+    const url = new URL(req.url);
+    const pathSegments = url.pathname.split("/").filter(segment => segment);
+
+    // Rotas para gerenciamento de convidados
+    if (
+      pathSegments.length >= 3 && 
+      pathSegments[0] === "eventos" && 
+      pathSegments[2] === "convidados"
+    ) {
+      const eventoId = pathSegments[1];
+      
+      // POST /eventos/{eventoId}/convidados - Adicionar convidado
+      if (req.method === "POST") {
+        return await adicionarConvidado(req, supabase, eventoId);
+      }
+      
+      // GET /eventos/{eventoId}/convidados - Listar convidados
+      if (req.method === "GET") {
+        return await listarConvidados(req, supabase, eventoId);
+      }
+    }
+
+    // Roteamento original para operações de eventos
     // Authenticate user
     const authHeader = req.headers.get("authorization");
     const authResult = await authenticateUser(supabase, authHeader);
@@ -34,10 +59,6 @@ async function handler(req) {
     }
 
     const user = authResult.user;
-
-    // Get route information
-    const url = new URL(req.url);
-    const pathSegments = url.pathname.split("/").filter(segment => segment);
 
     const isRootPath = pathSegments.length === 1;
     const hasEventParam = pathSegments.length > 1;
