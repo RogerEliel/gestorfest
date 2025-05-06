@@ -1,4 +1,4 @@
-
+# topo do arquivo
 project_id = "xsalkjgevllriluawvcp"
 
 [api]
@@ -27,6 +27,29 @@ enabled = true
 [realtime]
 enabled = true
 
-[[functions]]
-name = "convites/importar/[eventoId]"
+# Configuração de cada função edge:
+#
+# Use [functions.<nome_da_função>] — não [[functions]] — 
+# e especifique apenas as propriedades suportadas:
+# - verify_jwt
+# - import_map (se precisar de import_map.json)
+# - entrypoint (caminho para seu index.ts)
+#
+# Exemplo para a função "eventos":
+[functions.eventos]
 verify_jwt = true
+entrypoint = "supabase/functions/eventos/index.ts"
+import_map = "supabase/functions/eventos/import_map.json"
+
+# Exemplo para a função "convites" (rota principal):
+[functions.convites]
+verify_jwt = true
+entrypoint = "supabase/functions/convites/index.ts"
+import_map = "supabase/functions/convites/import_map.json"
+
+# Exemplo para a função de importação de convites:
+# Note o uso de aspas para nomes com barras e parâmetro
+[functions.convites/importar/[eventoId]]
+verify_jwt = true
+entrypoint = "supabase/functions/convites/import/index.ts"
+import_map = "supabase/functions/convites/import/import_map.json"
