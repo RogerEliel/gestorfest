@@ -9,49 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      auditoria_importacoes: {
+      auditoria_importacao: {
         Row: {
+          arquivo_nome: string | null
           created_at: string
           data_importacao: string
           detalhes_falhas: Json | null
           evento_id: string
           id: string
+          import_type: Database["public"]["Enums"]["import_type"]
+          ip_cliente: string | null
           registros_falha: number
           registros_importados: number
           total_registros: number
           updated_at: string
+          user_agent: string | null
           usuario_id: string
         }
         Insert: {
+          arquivo_nome?: string | null
           created_at?: string
           data_importacao?: string
           detalhes_falhas?: Json | null
           evento_id: string
           id?: string
+          import_type?: Database["public"]["Enums"]["import_type"]
+          ip_cliente?: string | null
           registros_falha: number
           registros_importados: number
           total_registros: number
           updated_at?: string
+          user_agent?: string | null
           usuario_id: string
         }
         Update: {
+          arquivo_nome?: string | null
           created_at?: string
           data_importacao?: string
           detalhes_falhas?: Json | null
           evento_id?: string
           id?: string
+          import_type?: Database["public"]["Enums"]["import_type"]
+          ip_cliente?: string | null
           registros_falha?: number
           registros_importados?: number
           total_registros?: number
           updated_at?: string
+          user_agent?: string | null
           usuario_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "auditoria_importacoes_evento_id_fkey"
+            foreignKeyName: "fk_auditoria_evento"
             columns: ["evento_id"]
             isOneToOne: false
             referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_auditoria_usuario"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
         ]
@@ -63,6 +82,7 @@ export type Database = {
           id: string
           nome: string
           observacao: string | null
+          responsável: string | null
           telefone: string
         }
         Insert: {
@@ -71,6 +91,7 @@ export type Database = {
           id?: string
           nome: string
           observacao?: string | null
+          responsável?: string | null
           telefone: string
         }
         Update: {
@@ -79,6 +100,7 @@ export type Database = {
           id?: string
           nome?: string
           observacao?: string | null
+          responsável?: string | null
           telefone?: string
         }
         Relationships: [
@@ -260,6 +282,7 @@ export type Database = {
       }
     }
     Enums: {
+      import_type: "xlsx" | "csv" | "manual"
       status_convite: "pendente" | "confirmado" | "recusado" | "conversar"
       tipo_usuario: "admin" | "cliente"
     }
@@ -377,6 +400,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      import_type: ["xlsx", "csv", "manual"],
       status_convite: ["pendente", "confirmado", "recusado", "conversar"],
       tipo_usuario: ["admin", "cliente"],
     },

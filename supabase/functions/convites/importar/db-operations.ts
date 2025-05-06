@@ -100,7 +100,7 @@ async function logImportOperation(
 ) {
   try {
     const { error } = await supabase
-      .from("auditoria_importacoes")
+      .from("auditoria_importacao") // Corrigido de "auditoria_importacoes" para "auditoria_importacao"
       .insert({
         evento_id: eventoId,
         usuario_id: usuarioId,

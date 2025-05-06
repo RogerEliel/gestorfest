@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -44,7 +45,7 @@ export function useImportHistory(eventoId: string | undefined) {
       console.log("Fetching import history for evento:", eventoId);
       
       const { data, error } = await supabase
-        .from('auditoria_importacoes')
+        .from('auditoria_importacao') // Corrigido de "auditoria_importacoes" para "auditoria_importacao"
         .select('*')
         .eq('evento_id', eventoId)
         .order('created_at', { ascending: false });
