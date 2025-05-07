@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate as useReactNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
@@ -40,7 +40,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  // We'll use the navigate function only inside component functions, not at the top level
+  const navigate = useReactNavigate();
 
   useEffect(() => {
     // Set up the auth listener first to prevent missing auth events
@@ -119,6 +120,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signOut = async () => {
+    // Only use navigate inside this function, not at the component level
     await supabase.auth.signOut();
     navigate('/login');
   };
