@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import ConsentCheckbox from "./ConsentCheckbox";
 import { supabase } from "@/integrations/supabase/client";
-import CustomLabel from "./ui/custom-label";
+import { CustomLabel } from "./ui/custom-label";
 
 interface RSVPFormProps {
   eventSlug: string;
