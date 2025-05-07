@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +12,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import CustomLabel from "./ui/custom-label";
+import { CustomLabel } from "./ui/custom-label";
 
 const formSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),

@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
@@ -11,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { EventoFormValues, eventoSchema } from "@/hooks/useEventoForm";
 import { UseFormReturn } from "react-hook-form";
-import CustomLabel from "./ui/custom-label";
+import { CustomLabel } from "./ui/custom-label";
 
 interface EventoFormProps {
   form: UseFormReturn<EventoFormValues>;

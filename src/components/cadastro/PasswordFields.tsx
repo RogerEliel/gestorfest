@@ -1,8 +1,7 @@
-
 import { Control } from "react-hook-form";
 import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form";
 import { InputPassword } from "@/components/ui/inputs";
-import CustomLabel from "@/components/ui/custom-label";
+import { CustomLabel } from "@/components/ui/custom-label";
 
 interface PasswordFieldsProps {
   control: Control<any>;
