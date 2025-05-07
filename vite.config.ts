@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 8080,
     open: true,
     proxy: {
       "/api": {
@@ -22,8 +22,5 @@ export default defineConfig({
   },
   plugins: [
     react(),
-  ],
-  server: {
-    port: 8080
-  }
+  ]
 });
