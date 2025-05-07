@@ -1,3 +1,4 @@
+
 // src/components/ui/calendar.tsx
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -18,12 +19,12 @@ export function Calendar({
   type DayPickerChevronProps = ChevronProps;
 
   // Component personalizado para renderizar as setas
-    function CustomChevron({ orientation, className: cnIcon, ...iconProps }: DayPickerChevronProps): React.JSX.Element {
-      const IconComponent = orientation === "left" ? ChevronLeft : ChevronRight;
-      return <IconComponent className={cn("h-4 w-4", cnIcon)} {...iconProps} />;
-    }
+  function CustomChevron({ orientation, className: cnIcon, ...iconProps }: DayPickerChevronProps): React.JSX.Element {
+    const IconComponent = orientation === "left" ? ChevronLeft : ChevronRight;
+    return <IconComponent className={cn("h-4 w-4", cnIcon)} {...iconProps} />;
+  }
 
-  // Montagem do objeto de components, usando apenas 'Chevron'
+  // Montagem do objeto de components, usando o nome correto 'Chevron'
   const components: Partial<CustomComponents> = {
     Chevron: CustomChevron,
   };
@@ -67,7 +68,7 @@ export function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={components as any}
+      components={components}
       {...props}
     />
   );
