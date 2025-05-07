@@ -1,18 +1,28 @@
 
-import React from "react";
-import { Label as ShadcnLabel } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import { cn } from "@/lib/utils"
 
-interface CustomLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  children: React.ReactNode;
+export interface CustomLabelProps
+  extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  children: React.ReactNode
+  className?: string
+  htmlFor?: string
 }
 
-const CustomLabel = ({ children, className, ...props }: CustomLabelProps) => {
-  return (
-    <ShadcnLabel {...props} className={cn(className)}>
-      {children}
-    </ShadcnLabel>
-  );
-};
+const CustomLabel = React.forwardRef<HTMLLabelElement, CustomLabelProps>(
+  ({ className, children, htmlFor, ...props }, ref) => {
+    return (
+      <label
+        ref={ref}
+        htmlFor={htmlFor}
+        className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)}
+        {...props}
+      >
+        {children}
+      </label>
+    )
+  }
+)
+CustomLabel.displayName = "CustomLabel"
 
-export default CustomLabel;
+export { CustomLabel }
