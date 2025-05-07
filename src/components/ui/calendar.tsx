@@ -1,19 +1,33 @@
-
+// src/components/ui/calendar.tsx
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, DayPickerProps, CustomComponents, ChevronProps } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = DayPickerProps;
 
-function Calendar({
+export function Calendar({
   className,
   classNames,
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Definição do tipo das props do Chevron do DayPicker
+  type DayPickerChevronProps = ChevronProps;
+
+  // Component personalizado para renderizar as setas
+    function CustomChevron({ orientation, className: cnIcon, ...iconProps }: DayPickerChevronProps): React.JSX.Element {
+      const IconComponent = orientation === "left" ? ChevronLeft : ChevronRight;
+      return <IconComponent className={cn("h-4 w-4", cnIcon)} {...iconProps} />;
+    }
+
+  // Montagem do objeto de components, usando apenas 'Chevron'
+  const components: Partial<CustomComponents> = {
+    Chevron: CustomChevron,
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -53,15 +67,9 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        // Use the correct property names for the DayPicker components
-        LeftIcon: () => <ChevronLeft className="h-4 w-4" />,
-        RightIcon: () => <ChevronRight className="h-4 w-4" />
-      }}
+      components={components as any}
       {...props}
     />
   );
 }
 Calendar.displayName = "Calendar";
-
-export { Calendar };
