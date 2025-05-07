@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 interface CustomDialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
   children: React.ReactNode;
+  className?: string;
 }
 
 export const CustomDialogTitle = ({ children, className, ...props }: CustomDialogTitleProps) => {
